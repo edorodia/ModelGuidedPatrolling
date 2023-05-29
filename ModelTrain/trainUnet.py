@@ -79,12 +79,9 @@ pbar_batch = tqdm(total=len(dataloader) // args.batch_size, desc="Batch progress
 for epoch in tqdm(range(N_epochs), desc="Epochs: "):
 
 	running_loss = []
-	pbar_epoch.update(1)
 	model.train()
 
-	for i, data in tqdm(enumerate(dataloader), desc="Batches: "):
-
-		pbar_batch
+	for i, data in tqdm(enumerate(dataloader), desc="Batches: ", total=len(dataloader) // args.batch_size):
 
 		# Get the batch
 		batch, batch_gt = data
@@ -154,18 +151,6 @@ for epoch in tqdm(range(N_epochs), desc="Epochs: "):
 
 	# Add the loss to the tb writer
 	writer.add_scalar('Train/Loss', np.mean(running_loss), epoch)
-
-	# Add the images to the tb writer
-
-	# Get the first image of the batch
-	test_input = batch[0, 1, :, :].unsqueeze(0)
-	test_gt = batch_gt[0, 0, :, :].unsqueeze(0)
-	test_output = output[0, 0, :, :].unsqueeze(0)
-
-	# Add the images to the tb writer	
-	writer.add_image('Test/Input', test_input, epoch)
-	writer.add_image('Test/GroundTruth', test_gt, epoch)
-	writer.add_image('Test/Prediction', test_output, epoch)
 
 	# Print the loss
 	print("Epoch: {}/{} Total Loss: {}".format(epoch, N_epochs, np.mean(running_test_loss)))

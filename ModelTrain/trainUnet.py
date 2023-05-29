@@ -77,7 +77,6 @@ pbar_epoch = tqdm(total=N_epochs, desc="Epoch progress: ")
 pbar_batch = tqdm(total=len(dataloader) // args.batch_size, desc="Batch progress: ")
 
 for epoch in tqdm(range(N_epochs), desc="Epochs: "):
-for epoch in tqdm(range(N_epochs), desc="Epochs: "):
 
 	running_loss = []
 	pbar_epoch.update(1)

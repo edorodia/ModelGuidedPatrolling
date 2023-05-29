@@ -45,8 +45,8 @@ mask = np.genfromtxt('Environment/Maps/map.txt', delimiter=' ')
 print("Shape of the dataset: ", dataset.trajectories.shape)
 
 # Create the dataloader
-dataloader = DataLoader(dataset, batch_size = 64, shuffle = True, num_workers = 0, )
-dataloader_test = DataLoader(dataset_test, batch_size = 64, shuffle = True, num_workers = 0)
+dataloader = DataLoader(dataset, batch_size = args.batch_size, shuffle = True, num_workers = 0, )
+dataloader_test = DataLoader(dataset_test, batch_size = args.batch_size, shuffle = True, num_workers = 0)
 
 # Training Loop #
 
@@ -73,12 +73,12 @@ writer = tb.SummaryWriter(log_dir=dir_path, comment='Unet_training_{}'.format(be
 
 mask_tensor = th.Tensor(mask).float().to(device)
 
-for epoch in track(range(N_epochs), description="Training progress: "):
+for epoch in range(N_epochs):
 
 	running_loss = []
 
 	model.train()
-	for i, data in enumerate(dataloader):
+	for i, data in track(enumerate(dataloader), "Training progress: "):
 
 		# Get the batch
 		batch, batch_gt = data
@@ -88,6 +88,10 @@ for epoch in track(range(N_epochs), description="Training progress: "):
 		batch_gt = th.Tensor(batch_gt).float().to(device)
 		batch_gt = batch_gt.unsqueeze(1)
 
+
+		# Reset the gradients
+		optimizer.zero_grad()
+
 		# Forward pass
 		output = model(batch)
 
@@ -96,16 +100,15 @@ for epoch in track(range(N_epochs), description="Training progress: "):
 
 		# Add the loss to the running loss
 		running_loss.append(loss.item())
-
-		# Backward pass
-		optimizer.zero_grad()
 		
+		# Backward pass
 		loss.backward()
-
+		# Apply the gradients
 		optimizer.step()
 
 	# Test the model
 	model.eval()
+
 	with th.no_grad():
 
 		running_test_loss = []
@@ -129,11 +132,8 @@ for epoch in track(range(N_epochs), description="Training progress: "):
 			# Add the loss to the running loss
 			running_test_loss.append(test_loss.item())
 
-	th.save(model.state_dict(), dir_path + '/Unet_{}_train.pth'.format(benchmark))
-
 	# Save the model if the loss is lower than the previous one
 	if epoch == 0:
-		th.save(model.state_dict(), dir_path + '/Unet_{}.pth'.format(benchmark))
 		min_loss = np.mean(running_test_loss)
 	elif np.mean(running_test_loss) < min_loss:
 		th.save(model.state_dict(), dir_path + '/Unet_{}_test.pth'.format(benchmark))

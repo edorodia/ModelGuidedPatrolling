@@ -113,8 +113,8 @@ class UNet(nn.Module):
 
         if mask is not None:
             # Compute the loss only on the masked area
-            places = torch.where(mask == 1)
-            loss = F.mse_loss(x_predicted[places], x_gt[places])
+            places = torch.stack(torch.where(mask == 1)).T
+            loss = F.mse_loss(x_predicted[:,:, places[:,0]], x_gt[:,:, places[:,1]])
         else:
             loss = F.mse_loss(x_predicted, x_gt)
 

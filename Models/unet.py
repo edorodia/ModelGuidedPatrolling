@@ -72,7 +72,7 @@ class OutConv(nn.Module):
         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=1)
 
     def forward(self, x):
-        return self.conv(x)
+        return F.sigmoid(self.conv(x))
     
 class UNet(nn.Module):
     def __init__(self, n_channels_in, n_channels_out, bilinear=False):

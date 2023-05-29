@@ -7,7 +7,7 @@ import numpy as np
 from torch.utils.data import DataLoader
 import torchvision.transforms as transforms
 import torch.utils.tensorboard as tb
-from rich.progress import track
+from tqdm import tqdm
 import os
 import time
 import argparse
@@ -73,12 +73,18 @@ writer = tb.SummaryWriter(log_dir=dir_path, comment='Unet_training_{}'.format(be
 
 mask_tensor = th.Tensor(mask).float().to(device)
 
-for epoch in range(N_epochs):
+pbar_epoch = tqdm(total=N_epochs, desc="Epoch progress: ")
+pbar_batch = tqdm(total=len(dataloader) // args.batch_size, desc="Batch progress: ")
+
+for epoch in tqdm(range(N_epochs)):
 
 	running_loss = []
-
+	pbar_epoch.update(1)
 	model.train()
-	for i, data in track(enumerate(dataloader), "Training progress: "):
+	
+	for i, data in enumerate(dataloader):
+
+		pbar_batch
 
 		# Get the batch
 		batch, batch_gt = data

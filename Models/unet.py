@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import numpy as np
 
 class DoubleConv(nn.Module):
     """(convolution => LeakyReLU) * 2"""
@@ -105,6 +106,19 @@ class UNet(nn.Module):
         x = self.up4(x, x1)
         logits = self.outc(x)
         return logits
+    
+    def compute_loss(self, x_gt, x_predicted, mask = None):
+
+        # Compute the loss
+
+        if mask is not None:
+            # Compute the loss only on the masked area
+            places = torch.where(self.mask == 1)
+            loss = F.mse_loss(x_predicted[places], x_gt[places])
+        else:
+            loss = F.mse_loss(x_predicted, x_gt)
+
+        return loss
 
 if __name__ == "__main__":
 

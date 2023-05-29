@@ -10,39 +10,39 @@ import torch.utils.tensorboard as tb
 from rich.progress import track
 import os
 import time
+import argparse
 
+# Define the parameters of the environment
+argparser = argparse.ArgumentParser()
+
+argparser.add_argument('--benchmark', type=str, default='algae_bloom', choices=['algae_bloom', 'shekel'])
+argparser.add_argument('--epochs', type=int, default=10)
+argparser.add_argument('--batch_size', type=int, default=64)
+argparser.add_argument('--lr', type=float, default=1e-4)
+argparser.add_argument('--weight_decay', type=float, default=1e-5)
+argparser.add_argument('--device', type=str, default='cuda:0', choices=['cuda:0', 'cuda:1', 'cpu']) 
+
+args = argparser.parse_args()
+
+benchmark = args.benchmark
+train_traj_file_name = 'ModelTrain/Data/trajectories_' + benchmark + '_train.npy'
+train_gt_file_name = 'ModelTrain/Data/gts_' + benchmark + '_train.npy'
+test_traj_file_name = 'ModelTrain/Data/trajectories_' + benchmark + '_test.npy'
+test_gt_file_name = 'ModelTrain/Data/gts_' + benchmark + '_test.npy'
 
 # Create the dataset
-dataset = StaticDataset(path_trajectories = 'ModelTrain/Data/trajectories_static_algae_large.npy', 
-						path_gts = 'ModelTrain/Data/gts_static_algae_large.npy',
+dataset = StaticDataset(path_trajectories = train_traj_file_name, 
+						path_gts = train_gt_file_name,
 						transform=None)
 
-dataset_test = StaticDataset(path_trajectories = 'ModelTrain/Data/trajectories_static_algae_test.npy', 
-						path_gts = 'ModelTrain/Data/gts_static_algae_test.npy',
+dataset_test = StaticDataset(path_trajectories = test_traj_file_name, 
+						path_gts = test_gt_file_name,
 						transform=None)
 
 
 mask = np.genfromtxt('Environment/Maps/map.txt', delimiter=' ')
 
 print("Shape of the dataset: ", dataset.trajectories.shape)
-
-# Show some samples in a 3x3 grid
-
-import matplotlib.pyplot as plt
-
-fig, axs = plt.subplots(3, 3, figsize = (10, 10))
-
-for i in range(3):
-		j = np.random.randint(0, len(dataset))
-		axs[i, 0].imshow(dataset[j][0][0,:,:], vmin=0, vmax=1)
-		axs[i, 1].imshow(dataset[j][0][1,:,:], vmin=0, vmax=1)
-		axs[i, 2].imshow(dataset[j][1], vmin=0, vmax=1)
-		axs[i, 0].set_title('Time {}'.format(j))
-		axs[i, 1].set_title('Model {}'.format(j))
-		axs[i, 2].set_title('GT {}'.format(j))
-
-plt.show()
-
 
 # Create the dataloader
 dataloader = DataLoader(dataset, batch_size = 64, shuffle = True, num_workers = 0, )
@@ -51,35 +51,31 @@ dataloader_test = DataLoader(dataset_test, batch_size = 64, shuffle = True, num_
 # Training Loop #
 
 # Define the device
-gpu = 'cuda:1'
-device = th.device(gpu if th.cuda.is_available() else 'cpu')
+device_str = args.device
+device = th.device(device_str)
 
 # Import the model
 model = UNet(n_channels_in=2, n_channels_out=1).to(device)
 
 # Define the optimizer
-optimizer = th.optim.Adam(model.parameters(), lr = 1e-4, weight_decay=1e-5)
+optimizer = th.optim.Adam(model.parameters(), lr = args.lr, weight_decay=args.weight_decay)
 #NOTE: The loss function is defined in the model
 
 # Define the number of epochs
-N_epochs = 50
-
-# Define the number of batches
-N_batches = len(dataloader)
+N_epochs = args.epochs
 
 # Start the training loop
 
 # Remove the previous tensorboard log and create a new one with the current time
-dir_path = 'runs/TrainingUnet/Unet_Algae_{}'.format(time.strftime("%Y%m%d-%H%M%S"))
+dir_path = 'runs/TrainingUnet/Unet_{}_{}'.format(benchmark, time.strftime("%Y%m%d-%H%M%S"))
 os.system('rm -rf ' + dir_path)
-writer = tb.SummaryWriter(log_dir=dir_path, comment='Unet_static_training_algae')
+writer = tb.SummaryWriter(log_dir=dir_path, comment='Unet_training_{}'.format(benchmark))
 
+mask_tensor = th.Tensor(mask).float().to(device)
 
 for epoch in track(range(N_epochs), description="Training progress: "):
 
 	running_loss = []
-	running_recon_loss = []
-	running_features_loss = []
 
 	model.train()
 	for i, data in enumerate(dataloader):
@@ -96,12 +92,10 @@ for epoch in track(range(N_epochs), description="Training progress: "):
 		output = model(batch)
 
 		# Compute the loss
-		loss, recon_loss, features_loss = model.loss(x=output, x_hat=batch_gt, mask=mask)
+		loss = model.compute_loss(x_predicted=output, x_gt=batch_gt, mask=mask_tensor)
 
 		# Add the loss to the running loss
 		running_loss.append(loss.item())
-		running_recon_loss.append(recon_loss.item())
-		running_features_loss.append(features_loss.item())
 
 		# Backward pass
 		optimizer.zero_grad()
@@ -115,8 +109,6 @@ for epoch in track(range(N_epochs), description="Training progress: "):
 	with th.no_grad():
 
 		running_test_loss = []
-		running_test_recon_loss = []
-		running_test_features_loss = []
 
 		# Get the batch
 
@@ -132,38 +124,33 @@ for epoch in track(range(N_epochs), description="Training progress: "):
 			# Forward pass
 			output = model(batch)
 			# Compute the loss
-			test_loss, test_recon_loss, test_features_loss = model.loss(x=output, x_hat=batch_gt, mask=mask)
+			test_loss = model.compute_loss(x_predicted=output, x_gt=batch_gt, mask=mask_tensor)
+			
 			# Add the loss to the running loss
 			running_test_loss.append(test_loss.item())
-			running_test_recon_loss.append(test_recon_loss.item())
-			running_test_features_loss.append(test_features_loss.item())
 
-	th.save(model.state_dict(), dir_path + '/Unet_static_algae_train.pth'.format(epoch))
+	th.save(model.state_dict(), dir_path + '/Unet_{}_train.pth'.format(benchmark))
 
 	# Save the model if the loss is lower than the previous one
 	if epoch == 0:
-		th.save(model.state_dict(), dir_path + '/Unet_static_algae.pth')
+		th.save(model.state_dict(), dir_path + '/Unet_{}.pth'.format(benchmark))
 		min_loss = np.mean(running_test_loss)
 	elif np.mean(running_test_loss) < min_loss:
-		th.save(model.state_dict(), dir_path + '/Unet_static_algae_test.pth'.format(epoch))
+		th.save(model.state_dict(), dir_path + '/Unet_{}_test.pth'.format(benchmark))
 		print("Model saved at epoch {}".format(epoch))
 		min_loss = np.mean(running_test_loss)
-	
+	else:
+		th.save(model.state_dict(), dir_path + '/Unet_{}_train.pth'.format(benchmark))
 
 
 	# Add the test loss to the tb writer
 	writer.add_scalar('Test/Loss', np.mean(running_test_loss), epoch)
-	writer.add_scalar('Test/ReconLoss', np.mean(running_test_recon_loss), epoch)
-	writer.add_scalar('Test/FeaturesLoss', np.mean(running_test_features_loss), epoch)
-
 
 	# Add the loss to the tb writer
 	writer.add_scalar('Train/Loss', np.mean(running_loss), epoch)
-	writer.add_scalar('Train/ReconLoss', np.mean(running_recon_loss), epoch)
-	writer.add_scalar('Train/FeaturesLoss', np.mean(running_features_loss), epoch)
 
 	# Print the loss
-	print("Epoch: {}/{} Total Loss: {} Recon Loss: {} Features Loss: {}".format(epoch, N_epochs, np.mean(running_test_loss), np.mean(running_test_recon_loss), np.mean(running_test_features_loss)))
+	print("Epoch: {}/{} Total Loss: {}".format(epoch, N_epochs, np.mean(running_test_loss)))
 
 
 

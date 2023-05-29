@@ -25,7 +25,7 @@ argparser.add_argument('--set', type=str, default='train', choices=['train', 'te
 
 args = argparser.parse_args()
 
-navigation_map = np.genfromtxt('Environment\Maps\map.txt', delimiter=' ')
+navigation_map = np.genfromtxt('Environment/Maps/map.txt', delimiter=' ')
 
 N = args.n_agents
 frameskip = args.frameskip

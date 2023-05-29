@@ -29,7 +29,7 @@ class Down(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
         self.maxpool_conv = nn.Sequential(
-            nn.MaxPool2d(2),
+            #nn.MaxPool2d(2),
             DoubleConv(in_channels, out_channels)
         )
 
@@ -72,7 +72,7 @@ class OutConv(nn.Module):
         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=1)
 
     def forward(self, x):
-        return F.sigmoid(self.conv(x))
+        return torch.sigmoid(self.conv(x))
     
 class UNet(nn.Module):
     def __init__(self, n_channels_in, n_channels_out, bilinear=False):

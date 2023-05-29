@@ -125,7 +125,7 @@ for epoch in track(range(N_epochs), description="Training progress: "):
 			output = model(batch)
 			# Compute the loss
 			test_loss = model.compute_loss(x_predicted=output, x_gt=batch_gt, mask=mask_tensor)
-			
+
 			# Add the loss to the running loss
 			running_test_loss.append(test_loss.item())
 
@@ -148,6 +148,18 @@ for epoch in track(range(N_epochs), description="Training progress: "):
 
 	# Add the loss to the tb writer
 	writer.add_scalar('Train/Loss', np.mean(running_loss), epoch)
+
+	# Add the images to the tb writer
+
+	# Get the first image of the batch
+	test_input = batch[0, 1, :, :].unsqueeze(0)
+	test_gt = batch_gt[0, 0, :, :].unsqueeze(0)
+	test_output = output[0, 0, :, :].unsqueeze(0)
+
+	# Add the images to the tb writer	
+	writer.add_image('Test/Input', test_input, epoch)
+	writer.add_image('Test/GroundTruth', test_gt, epoch)
+	writer.add_image('Test/Prediction', test_output, epoch)
 
 	# Print the loss
 	print("Epoch: {}/{} Total Loss: {}".format(epoch, N_epochs, np.mean(running_test_loss)))

@@ -73,15 +73,13 @@ writer = tb.SummaryWriter(log_dir=dir_path, comment='Unet_training_{}'.format(be
 
 mask_tensor = th.Tensor(mask).float().to(device)
 
-pbar_epoch = tqdm(total=N_epochs, desc="Epoch progress: ")
-pbar_batch = tqdm(total=len(dataloader) // args.batch_size, desc="Batch progress: ")
 
 for epoch in tqdm(range(N_epochs), desc="Epochs: "):
 
 	running_loss = []
 	model.train()
 
-	for i, data in tqdm(enumerate(dataloader), desc="Batches: ", total=len(dataloader) // args.batch_size):
+	for i, data in tqdm(enumerate(dataloader), desc="Batches: ", total= len(dataset) // args.batch_size):
 
 		# Get the batch
 		batch, batch_gt = data

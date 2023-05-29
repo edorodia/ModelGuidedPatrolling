@@ -7,7 +7,7 @@ import numpy as np
 from torch.utils.data import DataLoader
 import torchvision.transforms as transforms
 import torch.utils.tensorboard as tb
-from tqdm import tqdm
+from tqdm.auto import tqdm
 import os
 import time
 import argparse
@@ -76,13 +76,13 @@ mask_tensor = th.Tensor(mask).float().to(device)
 pbar_epoch = tqdm(total=N_epochs, desc="Epoch progress: ")
 pbar_batch = tqdm(total=len(dataloader) // args.batch_size, desc="Batch progress: ")
 
-for epoch in tqdm(range(N_epochs)):
+for epoch in tqdm(range(N_epochs), desc="Epochs: "):
 
 	running_loss = []
 	pbar_epoch.update(1)
 	model.train()
-	
-	for i, data in enumerate(dataloader):
+
+	for i, data in tqdm(enumerate(dataloader), desc="Batches: ")
 
 		pbar_batch
 

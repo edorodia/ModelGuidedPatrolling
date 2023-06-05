@@ -5,3 +5,4 @@ __pycache__/
 Environment/.DS_Store
 ModelTrain/Data
 .DS_Store
+Evaluation/EvaluateModels/Results

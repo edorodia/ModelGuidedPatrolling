@@ -12,10 +12,10 @@ class DoubleConv(nn.Module):
             mid_channels = out_channels
         self.double_conv = nn.Sequential(
             nn.Conv2d(in_channels, mid_channels, kernel_size=3, padding=1, bias=False),
-            #nn.BatchNorm2d(mid_channels),
+            nn.BatchNorm2d(mid_channels),
             nn.LeakyReLU(inplace=True),
             nn.Conv2d(mid_channels, out_channels, kernel_size=3, padding=1, bias=False),
-            #nn.BatchNorm2d(out_channels),
+            nn.BatchNorm2d(out_channels),
             nn.LeakyReLU(inplace=True)
         )
 
@@ -29,7 +29,7 @@ class Down(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
         self.maxpool_conv = nn.Sequential(
-            #nn.MaxPool2d(2),
+            nn.MaxPool2d(2),
             DoubleConv(in_channels, out_channels)
         )
 
@@ -75,24 +75,25 @@ class OutConv(nn.Module):
         return torch.sigmoid(self.conv(x))
     
 class UNet(nn.Module):
-    def __init__(self, n_channels_in, n_channels_out, bilinear=False):
+    def __init__(self, n_channels_in, n_channels_out, bilinear=False, scale = 1):
 
         super(UNet, self).__init__()
         self.n_channels_in = n_channels_in
         self.n_channels_out = n_channels_out
         self.bilinear = bilinear
+        self.scale = scale
 
-        self.inc = (DoubleConv(n_channels_in, 64))
-        self.down1 = (Down(64, 128))
-        self.down2 = (Down(128, 256))
-        self.down3 = (Down(256, 512))
+        self.inc = (DoubleConv(n_channels_in, 64 // self.scale))
+        self.down1 = (Down(64 // self.scale, 128 // self.scale))
+        self.down2 = (Down(128 // self.scale, 256 // self.scale))
+        self.down3 = (Down(256 // self.scale, 512 // self.scale))
         factor = 2 if bilinear else 1
-        self.down4 = (Down(512, 1024 // factor))
-        self.up1 = (Up(1024, 512 // factor, bilinear))
-        self.up2 = (Up(512, 256 // factor, bilinear))
-        self.up3 = (Up(256, 128 // factor, bilinear))
-        self.up4 = (Up(128, 64, bilinear))
-        self.outc = (OutConv(64, n_channels_out))
+        self.down4 = (Down(512 // self.scale, 1024 // factor // self.scale))
+        self.up1 = (Up(1024// self.scale, 512 // factor // self.scale, bilinear))
+        self.up2 = (Up(512// self.scale, 256 // factor // self.scale, bilinear))
+        self.up3 = (Up(256// self.scale, 128 // factor// self.scale, bilinear))
+        self.up4 = (Up(128// self.scale, 64 // self.scale, bilinear))
+        self.outc = (OutConv(64 // self.scale, n_channels_out))
 
     def forward(self, x):
         x1 = self.inc(x)

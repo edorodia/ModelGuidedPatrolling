@@ -8,8 +8,8 @@ from torchvision.transforms import GaussianBlur
 
 # Load the dataset
 
-trajectories = np.load('ModelTrain/Data/trajectories_static_algae.npy')
-gts = np.load('ModelTrain/Data/gts_static_algae.npy')
+trajectories = np.load('ModelTrain/Data/trajectories_algae_bloom_train.npy')
+gts = np.load('ModelTrain/Data/gts_algae_bloom_train.npy')
 
 plt.ion()
 

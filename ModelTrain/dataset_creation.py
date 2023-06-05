@@ -16,12 +16,13 @@ import argparse
 argparser = argparse.ArgumentParser()
 
 argparser.add_argument('--n_agents', type=int, default=4)
-argparser.add_argument('--frameskip', type=int, default=5)
+argparser.add_argument('--frameskip', type=int, default=1)
 argparser.add_argument('--max_frames', type=int, default=100)
-argparser.add_argument('--N_episodes', type=int, default=5000)
+argparser.add_argument('--N_episodes', type=int, default=100)
 argparser.add_argument('--parallel', type=bool, default=True)
-argparser.add_argument('--benchmark', type=str, default='algae_bloom', choices=['algae_bloom', 'shekel'])
-argparser.add_argument('--set', type=str, default='train', choices=['train', 'test'])
+argparser.add_argument('--benchmark', type=str, default='shekel', choices=['algae_bloom', 'shekel'])
+argparser.add_argument('--set', type=str, default='test', choices=['train', 'test'])
+argparser.add_argument('--random', type=bool, default=False)
 
 args = argparser.parse_args()
 
@@ -44,6 +45,9 @@ initial_positions = np.array([[42,32],
 def generate_trajectory(seed):
 
 
+	if parallel:
+		np.random.seed(seed)
+
 	""" Play a game with the environment and return the trajectory of the agents and the ground truth """
 	env = DiscreteModelBasedPatrolling(n_agents=N,
 								navigation_map=navigation_map,
@@ -54,7 +58,7 @@ def generate_trajectory(seed):
 								influence_radius=2,
 								forgetting_factor=2,
 								max_distance=200,
-								benchmark='algae_bloom',
+								benchmark=args.benchmark,
 								dynamic=False,
 								reward_weights=[10.0, 100.0],
 								reward_type='local_changes',
@@ -76,6 +80,9 @@ def generate_trajectory(seed):
 	model_list = []
 
 	t = 0
+
+
+	frame_number = np.random.choice(np.arange(0, max_frames), size = max_frames//frameskip, replace=False)
 	
 	while not all(done.values()):
 
@@ -84,13 +91,17 @@ def generate_trajectory(seed):
 
 		# Get the ground truth
 
-		if t % frameskip == 0:
+		if t in frame_number and args.random:
+			W_list.append(env.fleet.idleness_map.copy())
+			model_list.append(env.model.predict().copy())
+		elif t % frameskip == 0 and not args.random:
 			W_list.append(env.fleet.idleness_map.copy())
 			model_list.append(env.model.predict().copy())
 
+
 		t += 1
 
-		if t >= max_frames:
+		if t >= max_frames + 1:
 			break
 
 	W_list = np.asarray(W_list)
@@ -116,8 +127,8 @@ if __name__ == "__main__":
 	if parallel:
 		
 		# Create a Pool of sub-processes
-		pool = mp.Pool(mp.cpu_count())
-		# Generate the trajectories in parallel
+		pool = mp.Pool(5)
+		# Generate the trajectories in parallel 
 		trajectories = pool.map(generate_trajectory, range(seed_start, seed_end))
 		# Close the pool
 		pool.close()

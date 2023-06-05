@@ -15,12 +15,14 @@ import argparse
 # Define the parameters of the environment
 argparser = argparse.ArgumentParser()
 
-argparser.add_argument('--benchmark', type=str, default='algae_bloom', choices=['algae_bloom', 'shekel'])
-argparser.add_argument('--epochs', type=int, default=10)
+argparser.add_argument('--benchmark', type=str, default='shekel', choices=['algae_bloom', 'shekel'])
+argparser.add_argument('--epochs', type=int, default=50)
 argparser.add_argument('--batch_size', type=int, default=64)
-argparser.add_argument('--lr', type=float, default=1e-4)
-argparser.add_argument('--weight_decay', type=float, default=1e-5)
+argparser.add_argument('--lr', type=float, default=1e-3)
+argparser.add_argument('--weight_decay', type=float, default=0)
 argparser.add_argument('--device', type=str, default='cuda:0', choices=['cuda:0', 'cuda:1', 'cpu']) 
+argparser.add_argument('--scale', type=int, default=1) 
+
 
 args = argparser.parse_args()
 
@@ -55,10 +57,10 @@ device_str = args.device
 device = th.device(device_str)
 
 # Import the model
-model = UNet(n_channels_in=2, n_channels_out=1).to(device)
+model = UNet(n_channels_in=2, n_channels_out=1, bilinear=False, scale=2).to(device)
 
 # Define the optimizer
-optimizer = th.optim.Adam(model.parameters(), lr = args.lr, weight_decay=args.weight_decay)
+optimizer = th.optim.Adam(model.parameters(), lr = args.lr)
 #NOTE: The loss function is defined in the model
 
 # Define the number of epochs
@@ -79,19 +81,16 @@ for epoch in tqdm(range(N_epochs), desc="Epochs: "):
 	running_loss = []
 	model.train()
 
-	for i, data in tqdm(enumerate(dataloader), desc="Batches: ", total= len(dataset) // args.batch_size):
+	for i, data in tqdm(enumerate(dataloader), desc="Batches: ", total= len(dataset) // args.batch_size + 1):
 
 		# Get the batch
 		batch, batch_gt = data
 
 		# Transform the batch to a float Tensor for the model
-		batch = th.Tensor(batch).float().to(device)
-		batch_gt = th.Tensor(batch_gt).float().to(device)
-		batch_gt = batch_gt.unsqueeze(1)
-
-
-		# Reset the gradients
-		optimizer.zero_grad()
+		with th.no_grad():
+			batch = th.Tensor(batch).float().to(device)
+			batch_gt = th.Tensor(batch_gt).float().to(device)
+			batch_gt = batch_gt.unsqueeze(1)
 
 		# Forward pass
 		output = model(batch)
@@ -102,6 +101,8 @@ for epoch in tqdm(range(N_epochs), desc="Epochs: "):
 		# Add the loss to the running loss
 		running_loss.append(loss.item())
 		
+		# Reset the gradients
+		optimizer.zero_grad()
 		# Backward pass
 		loss.backward()
 		# Apply the gradients
@@ -138,7 +139,7 @@ for epoch in tqdm(range(N_epochs), desc="Epochs: "):
 		min_loss = np.mean(running_test_loss)
 	elif np.mean(running_test_loss) < min_loss:
 		th.save(model.state_dict(), dir_path + '/Unet_{}_test.pth'.format(benchmark))
-		print("Model saved at epoch {}".format(epoch))
+		#print("Model saved at epoch {}".format(epoch))
 		min_loss = np.mean(running_test_loss)
 	else:
 		th.save(model.state_dict(), dir_path + '/Unet_{}_train.pth'.format(benchmark))
@@ -151,7 +152,7 @@ for epoch in tqdm(range(N_epochs), desc="Epochs: "):
 	writer.add_scalar('Train/Loss', np.mean(running_loss), epoch)
 
 	# Print the loss
-	print("Epoch: {}/{} Total Loss: {}".format(epoch, N_epochs, np.mean(running_test_loss)))
+	print("\nEpoch: {}/{} Train Loss: {:.3f} Test Loss: {:.3f}\n".format(epoch, N_epochs, np.mean(running_test_loss), np.mean(running_test_loss)))
 
 
 

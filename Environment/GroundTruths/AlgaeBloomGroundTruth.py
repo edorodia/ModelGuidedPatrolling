@@ -30,6 +30,8 @@ class algae_bloom:
 
     def reset(self):
 
+        self.map = np.zeros_like(self.grid)
+
         starting_points = self.visitable_positions[np.random.choice(np.arange(self.visitable_positions.shape[0]), np.random.randint(1,5), replace=False)]
         
         self.particles = None

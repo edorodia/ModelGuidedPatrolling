@@ -9,8 +9,10 @@ from gym import spaces
 
 from Models.KNNmodel import KNNmodel, RKNNmodel
 from Models.MiopicModel import MiopicModel
+from Models.GaussianProcessModel import GaussianProcessModel
+from Models.UnetModel import UnetDeepModel, benchmark_2_path
 
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_squared_error, r2_score
 
 class Vehicle:
 
@@ -124,6 +126,7 @@ class Vehicle:
 			return True
 		else:
 			return not self.navigation_map[c_position[0], c_position[1]].astype(bool)
+
 
 class CoordinatedFleet:
 
@@ -274,7 +277,6 @@ class CoordinatedFleet:
 			self.idleness_map[np.where(self.vehicles[vehicle_id].influence_mask != 0)] = 0
 	
 
-
 class DiscreteModelBasedPatrolling:
 
 	def __init__(self,
@@ -313,6 +315,8 @@ class DiscreteModelBasedPatrolling:
 		self.seed = seed
 		self.dynamic = dynamic
 
+		self.visitable_positions = np.column_stack(np.where(self.navigation_map == 1))
+
 		self.lambda_W = reward_weights[0]
 		self.lambda_I = reward_weights[1]
 
@@ -331,13 +335,19 @@ class DiscreteModelBasedPatrolling:
 		""" Create the reward function """
 		self.reward_type = reward_type
 
+		self.model_str = model
+
 		""" Create the model """
 		if model == 'knn':
 			self.model = KNNmodel(navigation_map=self.navigation_map, resolution=self.resolution, influence_radius=self.influence_radius, dt = 0.01)
 		elif model == 'miopic':
 			self.model = MiopicModel(navigation_map=self.navigation_map, resolution=self.resolution, influence_radius=self.influence_radius, dt = 0.7)
 		elif model == 'rknn':
-			self.model = RKNNmodel(navigation_map=self.navigation_map, resolution=self.resolution, influence_radius=self.influence_radius, dt = 0.01)
+			self.model = RKNNmodel(navigation_map=self.navigation_map, resolution=self.resolution, influence_radius=self.influence_radius*2, dt = 0.01)
+		elif model == 'deepUnet':
+			self.model = UnetDeepModel(navigation_map=self.navigation_map, model_path = benchmark_2_path[benchmark], resolution=self.resolution, influence_radius=self.influence_radius, dt = 0.01)
+		elif model == 'gp':
+			self.model = GaussianProcessModel(navigation_map=self.navigation_map, resolution=self.resolution, influence_radius=self.influence_radius, dt = 0.01)
 		else:
 			raise ValueError('Unknown model')
 
@@ -353,11 +363,6 @@ class DiscreteModelBasedPatrolling:
 			raise ValueError('Unknown benchmark')
 
 		self.ground_truth.reset()
-
-	def __del__(self):
-
-		if self.fig is not None:
-			plt.close()
 
 	def get_positions(self):
 
@@ -438,6 +443,8 @@ class DiscreteModelBasedPatrolling:
 		# Update the model #
 		if self.dynamic:
 			self.model.update(positions, values, np.ones_like(values)*self.steps)
+		elif self.model_str == 'deepUnet':
+			self.model.update(positions, values, self.fleet.idleness_map)
 		else:
 			self.model.update(positions, values)
 
@@ -514,7 +521,14 @@ class DiscreteModelBasedPatrolling:
 	
 	def update_info(self):
 
-		self.info['mse'] = mean_squared_error(self.ground_truth.read(),self.model.predict())/self.ground_truth.read().sum()
+		y_pred = self.model.predict()[self.visitable_positions[:,0], self.visitable_positions[:,1]].flatten()
+		y_true = self.ground_truth.read()[self.visitable_positions[:,0], self.visitable_positions[:,1]].flatten()
+
+		self.info['mse'] = mean_squared_error(y_pred, y_true, squared=True)
+		self.info['rmse'] = mean_squared_error(y_pred, y_true, squared=False)
+		self.info['weighted_rmse'] = mean_squared_error(y_pred, y_true, squared=False, sample_weight=np.clip(y_true, 0.1, 1.0))
+		self.info['R2'] = r2_score(y_pred, y_true)
+
 
 		return self.info
 	
@@ -560,70 +574,71 @@ if __name__ == "__main__":
 	from PathPlanners.LawnMower import LawnMowerAgent
 	from PathPlanners.NRRA import WanderingAgent
 
-	map = np.genfromtxt('Environment\Maps\map.txt', delimiter=' ')
+	scenario_map = np.genfromtxt('Environment\Maps\map.txt', delimiter=' ')
 
 	N = 4
 
 	initial_positions = np.array([[42,32],
-								  [50,40],
-								  [43,44],
-								  [35,45]])
+								[50,40],
+								[43,44],
+								[35,45]])
 
 	env = DiscreteModelBasedPatrolling(n_agents=N,
-								   navigation_map=map,
-								   initial_positions=initial_positions,
-								   model_based=True,
-								   movement_length=3,
-								   resolution=1,
-								   influence_radius=3,
-								   forgetting_factor=2,
-								   max_distance=200,
-								   benchmark='shekel',
-								   dynamic=False,
-								   reward_weights=[10.0, 100.0],
-								   reward_type='local_changes',
-								   model='miopic',
-								   seed=5,)
-	
-	env.reset()
-	env.reset()
-	env.reset()
-	done = {i: False for i in range(N)}
+								navigation_map=scenario_map,
+								initial_positions=initial_positions,
+								model_based=True,
+								movement_length=3,
+								resolution=1,
+								influence_radius=3,
+								forgetting_factor=2,
+								max_distance=100,
+								benchmark='shekel',
+								dynamic=False,
+								reward_weights=[10.0, 100.0],
+								reward_type='local_changes',
+								model='gp',
+								seed=50000,)
 
-	mse = []
-	rewards_list = []
-	#agent = {i: LawnMowerAgent( world=map, number_of_actions=8, movement_length= 3, forward_direction=0, seed=0) for i in range(N)}
-	agent = {i: WanderingAgent( world=map, number_of_actions=8, movement_length= 3, seed=0) for i in range(N)}
-	
-	while not all(done.values()):
+	for m in range(10):
+		
+		env.reset()
+		done = {i: False for i in range(N)}
 
-		#actions = {i: np.random.randint(0,8) for i in done.keys() if not done[i]}
-		actions = {i: agent[i].move(env.fleet.vehicles[i].position.astype(int)) for i in done.keys() if not done[i]}
-		observations, rewards, done, info = env.step(actions)
+		mse = []
+		rewards_list = []
+		#agent = {i: LawnMowerAgent( world=map, number_of_actions=8, movement_length= 3, forward_direction=0, seed=0) for i in range(N)}
+		agent = {i: WanderingAgent( world=scenario_map, number_of_actions=8, movement_length= 3, seed=0) for i in range(N)}
+		
+		while not all(done.values()):
 
-		for i in range(N):
-			# If rewards dict does not contain the key, add it with 0 value #
-			if i not in rewards.keys():
-				rewards[i] = 0
+			#actions = {i: np.random.randint(0,8) for i in done.keys() if not done[i]}
+			actions = {i: agent[i].move(env.fleet.vehicles[i].position.astype(int)) for i in done.keys() if not done[i]}
+			observations, rewards, done, info = env.step(actions)
 
-		rewards_list.append([rewards[i] for i in range(N)])
+			for i in range(N):
+				# If rewards dict does not contain the key, add it with 0 value #
+				if i not in rewards.keys():
+					rewards[i] = 0
 
-		env.render()
-		print("Rewards: ", rewards)
-		print("Done: ", done)
-		print("Info: ", info)
+			rewards_list.append([rewards[i] for i in range(N)])
 
-		mse.append(np.mean(info['mse']))
+			env.render()
+			print("Rewards: ", rewards)
+			print("Done: ", done)
+			print("Info: ", info)
 
-	plt.close()
+			mse.append(np.mean(np.sqrt(info['mse'])))
 
-	plt.plot(mse)
+		"""
+		plt.close()
 
-	plt.show()
+		plt.plot(mse)
 
-	plt.close()
+		plt.show()
 
-	plt.plot(np.cumsum(np.asarray(rewards_list), axis =0))
+		plt.close()
 
-	plt.show()
-	
+		plt.plot(np.cumsum(np.asarray(rewards_list), axis =0))
+
+		plt.show()
+		"""

@@ -1,38 +1,57 @@
 import sys
 sys.path.append('.')
-
 from PathPlanners.DRL.Agent.DuelingDQNAgent import MultiAgentDuelingDQNAgent
 from Environment.PatrollingEnvironment import DiscreteModelBasedPatrolling
 import numpy as np
+import time
+
+import argparse
+
+parser = argparse.ArgumentParser(description='Train a multiagent DQN agent to solve the patrolling problem.')
+parser.add_argument('--benchmark', type=str, default='shekel', choices=['shekel', 'algae_bloom'], help='The benchmark to use.')
+parser.add_argument('--seed', type=int, default=0, help='The seed to use.')
+parser.add_argument('--n_agents', type=int, default=4, help='The number of agents to use.')
+parser.add_argument('--movement_length', type=int, default=2, help='The movement length of the agents.')
+parser.add_argument('--resolution', type=int, default=1, help='The resolution of the environment.')
+parser.add_argument('--influence_radius', type=int, default=2, help='The influence radius of the agents.')
+parser.add_argument('--forgetting_factor', type=int, default=2, help='The forgetting factor of the agents.')
+parser.add_argument('--max_distance', type=int, default=300, help='The maximum distance of the agents.')
+parser.add_argument('--reward_weights', type=float, nargs='+', default=[1.0, 1.0], help='The reward weights of the agents.')
+parser.add_argument('--model', type=str, default='miopic')
+
+# Compose a name for the experiment
+args = parser.parse_args()
+
+experiment_name = f'Experiment_benchmark_{args.benchmark}_reward_weights_{args.reward_weights}_model_{args.model}_{time.strftime("%Y%m%d-%H%M%S")}'
 
 
-map = np.genfromtxt('Environment\Maps\map.txt', delimiter=' ')
+navigation_map = np.genfromtxt('Environment/Maps/map.txt', delimiter=' ')
 
 N = 4
 
 initial_positions = np.array([[42,32],
-                              [50,40],
-                              [43,44],
-                              [35,45]])
+							  [50,40],
+							  [43,44],
+							  [35,45]])
 
 env = DiscreteModelBasedPatrolling(n_agents=N,
-                                navigation_map=map,
-                                initial_positions=initial_positions[:N],
-                                model_based=True,
-                                movement_length=3,
-                                resolution=1,
-                                influence_radius=3,
-                                forgetting_factor=2,
-                                max_distance=300,
-                                benchmark='shekel',
-                                dynamic=False,
-                                reward_weights=[10.0, 100.0],
-                                reward_type='local_changes',
-                                model='miopic',
-                                seed=5,)
+								navigation_map=navigation_map,
+								initial_positions=initial_positions,
+								model_based=True,
+								movement_length=args.movement_length,
+								resolution=1,
+								influence_radius=args.movement_length,
+								forgetting_factor=args.forgetting_factor,
+								max_distance=args.max_distance,
+								benchmark=args.benchmark,
+								dynamic=False,
+								reward_weights=args.reward_weights,
+								reward_type='local_changes',
+								model='miopic',
+								seed=args.seed,)
 
 multiagent = MultiAgentDuelingDQNAgent(env=env,
-									memory_size=int(1E5),
+									memory_size=int(1E6),
 									batch_size=128,
 									target_update=1000,
 									soft_update=True,
@@ -46,10 +65,10 @@ multiagent = MultiAgentDuelingDQNAgent(env=env,
 									train_every=15,
 									save_every=5000,
 									distributional=False,
-									masked_actions=False,
+									masked_actions=True,
 									device='cuda:0',
-				logdir=f'runs/Multiagent/Vehicles_4/',
+				logdir=f'runs/DRL/{experiment_name}',
 				eval_episodes=10,
 				eval_every=1000)
 
-multiagent.train(episodes=10000)
+multiagent.train(episodes=20000)

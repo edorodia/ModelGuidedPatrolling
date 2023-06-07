@@ -171,12 +171,13 @@ class MultiAgentDuelingDQNAgent:
 
 		return actions
 
-	def select_masked_action(self, states: dict, positions: np.ndarray, deterministic: bool = False):
+	def select_masked_action(self, states: dict, positions: dict, deterministic: bool = False):
 		""" This is the core of the masking module. It selects an action for each agent, masked to avoid collisions and so"""
 		
 		#Initialize some things 
 		actions = dict()
-		q_values_agents = np.zeros((self.env.number_of_agents, self.env.action_space.n))
+		# q_values_agents = np.zeros((self.env.number_of_agents, self.env.action_space.n))
+		q_values_agents = dict()
 
 		for agent_id, state in states.items():
 			""" First, we censor agent-to-env collisions """
@@ -196,7 +197,7 @@ class MultiAgentDuelingDQNAgent:
 				q_values, _ = self.safe_masking_module.mask_action(q_values = q_values.flatten())
 				q_values, _ = self.nogoback_masking_modules[agent_id].mask_action(q_values = q_values)
 
-			q_values_agents[agent_id] = q_values
+			q_values_agents[agent_id] = q_values.copy()
 			
 		# Once we have the q_values for each agent, we compute the consensus q_values and we select the action for each agent #
 		# IMPORTANT NOTE: CONSENSUS MASKING SHOULD BE APPLIED AT THE END. IF THE CONSENSUS IS BROKEN, ANYTHING COULD HAPPEND, EVEN COLLISIONS #
@@ -323,7 +324,8 @@ class MultiAgentDuelingDQNAgent:
 				if not self.masked_actions:
 					actions = self.select_action(state)
 				else:
-					actions = self.select_masked_action(states=state, positions=self.env.fleet.get_positions())
+					positions_dict = self.env.get_positions_dict()
+					actions = self.select_masked_action(states=state, positions=positions_dict)
 					
 				actions = {agent_id: action for agent_id, action in actions.items() if not done[agent_id]}
 

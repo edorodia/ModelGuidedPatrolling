@@ -155,6 +155,7 @@ class CoordinatedFleet:
 								 navigation_map=navigation_map,
 								 total_max_distance=total_max_distance,
 								 influence_radius=influence_radius) for i in range(n_vehicles)]
+
 		
 		self.vehicles_ids = set(range(n_vehicles))
 
@@ -295,6 +296,7 @@ class DiscreteModelBasedPatrolling:
 				model: str = 'miopic',
 				dynamic: bool = True,
 				seed: int = 0,
+				random_gt: bool = True,
 				):
 		
 		""" Copy attributes """
@@ -314,6 +316,7 @@ class DiscreteModelBasedPatrolling:
 		self.influence_radius = influence_radius
 		self.seed = seed
 		self.dynamic = dynamic
+		self.random_gt = random_gt
 
 		self.visitable_positions = np.column_stack(np.where(self.navigation_map == 1))
 
@@ -327,6 +330,21 @@ class DiscreteModelBasedPatrolling:
 									  total_max_distance=self.max_distance,
 									  influence_radius=self.influence_radius,
 									  max_num_of_steps=(forgetting_factor*self.max_distance)//self.move_length,)
+		
+		# Compute the normalization value #
+		example_vehicle = Vehicle(initial_positions=np.asarray([50,50]),
+								navigation_map=np.ones((100,100)),
+								total_max_distance=self.max_distance,
+								influence_radius=self.influence_radius)
+		example_vehicle.reset()
+
+		influence_mask_0 = example_vehicle._influence_mask()
+		example_vehicle.move(self.movement_length, 0)
+		influence_mask_1 = example_vehicle._influence_mask()
+
+		self.normalization_value = np.sum(np.clip(influence_mask_1 - influence_mask_0,0,1))
+
+		""" Create the observation space """
 
 		self.action_space = spaces.Discrete(8)
 
@@ -372,6 +390,10 @@ class DiscreteModelBasedPatrolling:
 
 		return np.asarray([vehicle.position for vehicle in self.fleet.vehicles])
 
+	def get_positions_dict(self):
+		
+		return {agent_id: position for agent_id, position in zip(self.fleet.vehicles_ids, self.fleet.get_positions())}
+
 
 	def reset(self):
 
@@ -379,7 +401,8 @@ class DiscreteModelBasedPatrolling:
 		self.fleet.reset()
 
 		""" Reset the ground truth """
-		self.ground_truth.reset()
+		if self.random_gt:
+			self.ground_truth.reset()
 
 		""" Reset the model """
 		self.model.reset()
@@ -482,7 +505,8 @@ class DiscreteModelBasedPatrolling:
 		""" The reward is selected dependign on the reward type """
 
 		reward = {}
-		self.info = {'W': 0.0, 'I': 0.0}
+		self.info['W'] = 0.0
+		self.info['I'] = 0.0
 
 		if self.reward_type == 'local_changes':
 
@@ -502,7 +526,7 @@ class DiscreteModelBasedPatrolling:
 				else:
 					information_gain = np.sum(self.fleet.vehicles[agent_id].influence_mask * (self.model.predict() / np.sum(self.fleet.redundancy_mask())))
 
-				reward[agent_id] = self.lambda_W * W[agent_id] + self.lambda_I * information_gain
+				reward[agent_id] = (self.lambda_W * W[agent_id] + self.lambda_I * information_gain) / self.normalization_value
 				self.info['W'] += W[agent_id]
 				self.info['I'] += information_gain
 		else:
@@ -521,6 +545,7 @@ class DiscreteModelBasedPatrolling:
 	
 	def update_info(self):
 
+
 		y_pred = self.model.predict()[self.visitable_positions[:,0], self.visitable_positions[:,1]].flatten()
 		y_true = self.ground_truth.read()[self.visitable_positions[:,0], self.visitable_positions[:,1]].flatten()
 
@@ -528,7 +553,6 @@ class DiscreteModelBasedPatrolling:
 		self.info['rmse'] = mean_squared_error(y_pred, y_true, squared=False)
 		self.info['weighted_rmse'] = mean_squared_error(y_pred, y_true, squared=False, sample_weight=np.clip(y_true, 0.1, 1.0))
 		self.info['R2'] = r2_score(y_pred, y_true)
-
 
 		return self.info
 	
@@ -589,24 +613,26 @@ if __name__ == "__main__":
 								model_based=True,
 								movement_length=3,
 								resolution=1,
-								influence_radius=3,
+								influence_radius=2,
 								forgetting_factor=2,
 								max_distance=100,
 								benchmark='shekel',
 								dynamic=False,
-								reward_weights=[10.0, 100.0],
+								reward_weights=[1, 1],
 								reward_type='local_changes',
 								model='gp',
-								seed=50000,)
+								seed=50000,
+								)
 
 	for m in range(10):
 		
+		env.reset()
 		env.reset()
 		done = {i: False for i in range(N)}
 
 		mse = []
 		rewards_list = []
-		#agent = {i: LawnMowerAgent( world=map, number_of_actions=8, movement_length= 3, forward_direction=0, seed=0) for i in range(N)}
+		#agent = {i: LawnMowerAgent( world=scenario_map, number_of_actions=8, movement_length= 3, forward_direction=0, seed=0) for i in range(N)}
 		agent = {i: WanderingAgent( world=scenario_map, number_of_actions=8, movement_length= 3, seed=0) for i in range(N)}
 		
 		while not all(done.values()):
@@ -614,6 +640,8 @@ if __name__ == "__main__":
 			#actions = {i: np.random.randint(0,8) for i in done.keys() if not done[i]}
 			actions = {i: agent[i].move(env.fleet.vehicles[i].position.astype(int)) for i in done.keys() if not done[i]}
 			observations, rewards, done, info = env.step(actions)
+
+			print(env.normalization_value)
 
 			for i in range(N):
 				# If rewards dict does not contain the key, add it with 0 value #
@@ -629,7 +657,7 @@ if __name__ == "__main__":
 
 			mse.append(np.mean(np.sqrt(info['mse'])))
 
-		"""
+		
 		plt.close()
 
 		plt.plot(mse)
@@ -641,4 +669,4 @@ if __name__ == "__main__":
 		plt.plot(np.cumsum(np.asarray(rewards_list), axis =0))
 
 		plt.show()
-		"""
+		

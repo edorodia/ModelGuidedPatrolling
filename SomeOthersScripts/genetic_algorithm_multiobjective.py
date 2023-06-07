@@ -1,14 +1,14 @@
 import sys
 sys.path.append('.')
 
-
+from PathPlanners.NRRA import WanderingAgent
 from deap import algorithms
 from deap import base
 from deap import creator
 from deap import tools
 import multiprocessing as mp
 import deap
-
+import signal
 
 import matplotlib.pyplot as plt
 
@@ -18,35 +18,41 @@ from deap.algorithms import eaMuPlusLambda
 
 import pickle
 
+def init_pool():
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
 
 """ Create an environment """
 
 nav_map = np.genfromtxt('Environment\Maps\map.txt', delimiter=' ')
-initial_positions = np.array([[20,20],
-							  [20,30],
-							  [20,35],])
+N = 4
 
-N = initial_positions.shape[0]
+initial_positions = np.array([[42,32],
+                            [50,40],
+                            [43,44],
+                            [35,45]])
 
 env = DiscreteModelBasedPatrolling(n_agents=N,
-                                navigation_map=nav_map,
-                                initial_positions=initial_positions,
-                                model_based=True,
-                                movement_length=3,
-                                resolution=1,
-                                influence_radius=3,
-                                forgetting_factor=2,
-                                max_distance=400,
-                                benchmark='shekel',
-                                dynamic=True,
-                                reward_weights=[100.0, 100.0],
-                                reward_type='local_changes',
-                                model='miopic',
-                                seed=0,)
+								navigation_map=nav_map,
+								initial_positions=initial_positions,
+								model_based=True,
+								movement_length=2,
+								resolution=1,
+								influence_radius=2,
+								forgetting_factor=2,
+								max_distance=300,
+								benchmark='shekel',
+								dynamic=False,
+								reward_weights=[1.0, 1.0],
+								reward_type='local_changes',
+								model='miopic',
+								seed=5000,
+                                random_gt=False)
 
 """ Create a genetic algorithm """
 
 iteration = 0
+seed = 0
+
 
 # Create a fitness function
 def fitness_function(individual):
@@ -60,8 +66,6 @@ def fitness_function(individual):
     I_mean = []
 
     for _ in range(1):
-
-        np.random.seed(iteration)
 
         env.reset()
 
@@ -82,6 +86,8 @@ def fitness_function(individual):
         W_mean.append(W.copy())
         I_mean.append(I.copy())
 
+    # Set the seed to an arbitrary value
+
     return np.mean(W_mean), np.mean(I_mean)
 
 def cxTwoPointCopy(ind1, ind2):
@@ -99,6 +105,31 @@ def cxTwoPointCopy(ind1, ind2):
 
     return ind1, ind2
 
+def individualCreator():
+    """ Create a random individual with safe movements """
+
+    agents = [WanderingAgent( world = nav_map, movement_length = 2, number_of_actions = 8, consecutive_movements = 3) for _ in range(N)]
+    actual_position = initial_positions.copy()
+
+    individual = []
+
+    for _ in range(100):
+        
+        moves = []
+
+        for idx, agent in enumerate(agents):
+            action = agent.move(actual_position[idx])
+            moves.append(action)
+            angle = 2*np.pi * action / 8
+            actual_position[idx] = actual_position[idx] + 2 * np.array([np.cos(angle), np.sin(angle)])
+        
+        individual.append(moves)
+
+
+    individual_deap = creator.Individual(np.array(individual).reshape(-1))
+    
+    return individual_deap
+
 # Create a toolbox
 toolbox = base.Toolbox()
 
@@ -106,7 +137,7 @@ toolbox = base.Toolbox()
 creator.create("FitnessMax", base.Fitness, weights=(1.0, 1.0))
 creator.create("Individual", np.ndarray, fitness=creator.FitnessMax)
 toolbox.register("attr_bool", np.random.randint, 0, 8)
-toolbox.register("individual", tools.initRepeat, creator.Individual, toolbox.attr_bool, n=N*100)
+toolbox.register("individual", individualCreator)
 
 
 # Register the population
@@ -130,7 +161,7 @@ if __name__ == '__main__':
     """ Create multi-processing pool """
 
     # Create a pool
-    pool = mp.Pool(processes=mp.cpu_count())
+    pool = mp.Pool(processes=8)
 
     # Register the pool
     toolbox.register("map", pool.map)
@@ -155,7 +186,7 @@ if __name__ == '__main__':
     n_generations = 100
 
     # Set the number of individuals in the population
-    n_individuals = 50
+    n_individuals = 80
 
     # Set the probability of crossover
     crossover_probability = 0.5
@@ -163,40 +194,41 @@ if __name__ == '__main__':
     # Set the probability of mutation
     mutation_probability = 0.2
 
-
-    for i in range(10):
-
-        iteration = i
+    for pb in [[0.8, 0.2], [0.7, 0.3], [0.5, 0.2]]:
 
         # Run the genetic algorithm
         population, logbook = eaMuPlusLambda(population=toolbox.population(n=n_individuals),
                                                 toolbox=toolbox,
                                                 mu=n_individuals,
                                                 lambda_=n_individuals,
-                                                cxpb=crossover_probability,
-                                                mutpb=mutation_probability,
+                                                cxpb=pb[0],
+                                                mutpb=pb[1],
                                                 ngen=n_generations,
                                                 stats=stats,
                                                 halloffame=hof,
-                                                verbose=True)                   
+                                                verbose=True)            
 
-        """ Plot the pareto front """
+               
 
-        # Get the pareto front
-        pareto_front = np.array([ind.fitness.values for ind in hof])
+    """ Plot the pareto front """
 
-        # Plot the pareto front
-        plt.figure()
-        plt.scatter(pareto_front[:,0], pareto_front[:,1])
-        plt.xlabel('W')
-        plt.ylabel('I')
-        plt.savefig(f'SomeOthersScripts/pareto_front_{i}.png')
+    # Get the pareto front
+    pareto_front = np.array([ind.fitness.values for ind in hof])
+
+    # Plot the pareto front
+    plt.figure()
+    plt.scatter(pareto_front[:,0], pareto_front[:,1])
+    plt.xlabel('W')
+    plt.ylabel('I')
+
+    name = 'pareto_front.png'
+    plt.savefig(f'SomeOthersScripts/' + name)
 
 
-        cp = dict(population=population, generation=100, halloffame=hof, logbook=logbook)
+    cp = dict(population=population, generation=100, halloffame=hof, logbook=logbook)
 
-        with open(f"SomeOthersScripts/optimization_iteration_{i}.pkl", "wb") as cp_file:
-            pickle.dump(cp, cp_file)
+    with open(f"SomeOthersScripts/optimization.pkl", "wb") as cp_file:
+        pickle.dump(cp, cp_file)
         
     pool.close()
 

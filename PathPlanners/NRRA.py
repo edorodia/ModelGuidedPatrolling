@@ -15,7 +15,6 @@ class WanderingAgent:
 		self.t = 0
 		self.action = None
 		self.seed = seed
-		np.random.seed(self.seed)
 	
 	def move(self, actual_position):
 

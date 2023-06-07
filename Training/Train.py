@@ -18,6 +18,7 @@ parser.add_argument('--forgetting_factor', type=int, default=2, help='The forget
 parser.add_argument('--max_distance', type=int, default=300, help='The maximum distance of the agents.')
 parser.add_argument('--reward_weights', type=float, nargs='+', default=[1.0, 1.0], help='The reward weights of the agents.')
 parser.add_argument('--model', type=str, default='miopic')
+parser.add_argument('--device', type=str, default='cuda:0', help='The device to use.', choices=['cpu', 'cuda:0', 'cuda:1'])
 
 # Compose a name for the experiment
 args = parser.parse_args()
@@ -66,9 +67,13 @@ multiagent = MultiAgentDuelingDQNAgent(env=env,
 									save_every=5000,
 									distributional=False,
 									masked_actions=True,
-									device='cuda:0',
+									device=args.device,
 				logdir=f'runs/DRL/{experiment_name}',
 				eval_episodes=10,
 				eval_every=1000)
+
+# Save the configuration of args as a yaml file
+with open(f'runs/DRL/{experiment_name}/config.yaml', 'w') as f:
+	f.write(str(args))
 
 multiagent.train(episodes=20000)

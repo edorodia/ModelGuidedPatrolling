@@ -526,7 +526,7 @@ class DiscreteModelBasedPatrolling:
 				else:
 					information_gain = np.sum(self.fleet.vehicles[agent_id].influence_mask * (self.model.predict() / np.sum(self.fleet.redundancy_mask())))
 
-				reward[agent_id] = (self.lambda_W * W[agent_id] + self.lambda_I * information_gain) / self.normalization_value
+				reward[agent_id] = (self.lambda_W * W[agent_id] + self.lambda_I * information_gain)
 				self.info['W'] += W[agent_id]
 				self.info['I'] += information_gain
 		else:
@@ -618,9 +618,9 @@ if __name__ == "__main__":
 								max_distance=100,
 								benchmark='shekel',
 								dynamic=False,
-								reward_weights=[1, 1],
+								reward_weights=[10, 10],
 								reward_type='local_changes',
-								model='gp',
+								model='miopic',
 								seed=50000,
 								)
 

@@ -2,6 +2,6 @@
 # Script to train DRL
 
 # Usage: ./train_shekel.sh
-python Training/Train.py --benchmark shekel --reward_weights 1.0 --reward_weights 1.0 --model miopic --decive "cuda:0"
-python Training/Train.py --benchmark shekel --reward_weights 0.1 --reward_weights 1.0 --model miopic --decive "cuda:0" 
-python Training/Train.py --benchmark shekel --reward_weights 1.0 --reward_weights 0.1 --model miopic --decive "cuda:0" 
+python Training/Train.py --benchmark shekel --w_reward_weight 10.0 --i_reward_weight 1.0 --model miopic
+python Training/Train.py --benchmark shekel --w_reward_weight 1.0 --i_reward_weight 10.0 --model miopic
+python Training/Train.py --benchmark shekel --w_reward_weight 10.0 --i_reward_weight 10.0 --model miopic

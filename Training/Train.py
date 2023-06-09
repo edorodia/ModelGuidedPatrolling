@@ -16,14 +16,17 @@ parser.add_argument('--resolution', type=int, default=1, help='The resolution of
 parser.add_argument('--influence_radius', type=int, default=2, help='The influence radius of the agents.')
 parser.add_argument('--forgetting_factor', type=int, default=2, help='The forgetting factor of the agents.')
 parser.add_argument('--max_distance', type=int, default=300, help='The maximum distance of the agents.')
-parser.add_argument('--reward_weights', type=float, nargs='+', default=[1.0, 1.0], help='The reward weights of the agents.')
+parser.add_argument('--w_reward_weight', type=float, default=1.0, help='The reward weights of the agents.')
+parser.add_argument('--i_reward_weight', type=float, default=1.0, help='The reward weights of the agents.')
 parser.add_argument('--model', type=str, default='miopic')
 parser.add_argument('--device', type=str, default='cuda:0', help='The device to use.', choices=['cpu', 'cuda:0', 'cuda:1'])
 
 # Compose a name for the experiment
 args = parser.parse_args()
 
-experiment_name = f'Experiment_benchmark_{args.benchmark}_reward_weights_{args.reward_weights}_model_{args.model}_{time.strftime("%Y%m%d-%H%M%S")}'
+reward_weights = [args.w_reward_weight, args.i_reward_weight]
+
+experiment_name = f'Experiment_benchmark_{args.benchmark}_reward_weights_W_{reward_weights[0]}_I_{reward_weights[1]}_model_{args.model}_{time.strftime("%Y%m%d-%H%M%S")}'
 
 
 navigation_map = np.genfromtxt('Environment/Maps/map.txt', delimiter=' ')
@@ -46,19 +49,19 @@ env = DiscreteModelBasedPatrolling(n_agents=N,
 								max_distance=args.max_distance,
 								benchmark=args.benchmark,
 								dynamic=False,
-								reward_weights=args.reward_weights,
+								reward_weights=reward_weights,
 								reward_type='local_changes',
 								model='miopic',
 								seed=args.seed,)
 
 multiagent = MultiAgentDuelingDQNAgent(env=env,
 									memory_size=int(1E6),
-									batch_size=128,
+									batch_size=64,
 									target_update=1000,
 									soft_update=True,
 									tau=0.001,
 									epsilon_values=[1.0, 0.05],
-									epsilon_interval=[0.0, 0.33],
+									epsilon_interval=[0.0, 0.5],
 									learning_starts=100,
 									gamma=0.99,
 									lr=1e-4,
@@ -72,8 +75,5 @@ multiagent = MultiAgentDuelingDQNAgent(env=env,
 				eval_episodes=10,
 				eval_every=1000)
 
-# Save the configuration of args as a yaml file
-with open(f'runs/DRL/{experiment_name}/config.yaml', 'w') as f:
-	f.write(str(args))
 
 multiagent.train(episodes=20000)

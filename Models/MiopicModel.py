@@ -42,7 +42,7 @@ class MiopicModel(BaseModel):
 		if self.influence_radius != 0:
 			for i in range(len(x)):
 				# Compute all the distances
-				distances = np.linalg.norm(self.visitable_positions - x[i], axis=1)
+				distances = np.linalg.norm(self.visitable_positions - x[i].astype(int), axis=1).astype(int)
 				# Get the positions that are closer than influence_radius
 				positions = self.visitable_positions[distances <= self.influence_radius]
 				# Set the positions to y

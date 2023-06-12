@@ -278,7 +278,7 @@ class MultiAgentDuelingDQNAgent:
 		if self.writer is None:
 			# assert not os.path.exists(self.logdir), "El directorio ya existe. He evitado que se sobrescriba"
 			self.writer = SummaryWriter(log_dir=self.logdir, filename_suffix=self.experiment_name)
-			self.write_experiment_config()
+			# self.write_experiment_config()
 
 		# Agent in training mode #
 		self.is_eval = False
@@ -519,6 +519,7 @@ class MultiAgentDuelingDQNAgent:
 			state = self.env.reset()
 			if render:
 				self.env.render()
+				
 			done = {agent_id: False for agent_id in range(self.env.number_of_agents)}
 
 			for module in self.nogoback_masking_modules.values():
@@ -533,7 +534,8 @@ class MultiAgentDuelingDQNAgent:
 				if not self.masked_actions:
 					actions = self.select_action(state, deterministic=True)
 				else:
-					actions = self.select_masked_action(states=state, positions=self.env.get_all_positions(), deterministic=True)
+					positions_dict = self.env.get_positions_dict()
+					actions = self.select_masked_action(states=state, positions=positions_dict)
 					
 				actions = {agent_id: action for agent_id, action in actions.items() if not done[agent_id]}
 

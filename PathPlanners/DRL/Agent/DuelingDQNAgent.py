@@ -266,32 +266,35 @@ class MultiAgentDuelingDQNAgent:
 		else:
 			return (b_end - b_init) / (p_fin - p_init) * (p - p_init) + b_init
 
-	def train(self, episodes):
-		# TODO: Change for multiagent
 
+	def train(self, episodes, write_log = True, verbose=True):
 		""" Train the agent. """
 
 		# Optimization steps #
 		steps = 0
 		
 		# Create train logger and save configs #
-		if self.writer is None:
+		if self.writer is None and write_log:
 			# assert not os.path.exists(self.logdir), "El directorio ya existe. He evitado que se sobrescriba"
 			self.writer = SummaryWriter(log_dir=self.logdir, filename_suffix=self.experiment_name)
 			# self.write_experiment_config()
 
 		# Agent in training mode #
 		self.is_eval = False
-		# Reset episode count #
-		self.episode = 1
-		# Reset metrics #
-		episodic_reward_vector = []
-		record = -np.inf
+
+		# Reset episode count if this is the first time we train #
+		if self.episode == 0:
+			self.episode = 1
+			# Reset metrics #
+			episodic_reward_vector = []
+			record = -np.inf
+		
+		initial_episode = self.episode
 
 		for module in self.nogoback_masking_modules.values():
 			module.reset()
 
-		for episode in trange(1, int(episodes) + 1):
+		for episode in trange(self.episode, initial_episode + int(episodes)):
 
 			done = {i:False for i in range(self.env.number_of_agents)}
 			state = self.env.reset()
@@ -364,7 +367,8 @@ class MultiAgentDuelingDQNAgent:
 					self.episode += 1
 
 					# Log progress
-					self.log_data()
+					if write_log:
+						self.log_data()
 
 				# If training is ready
 				if len(self.memory) >= self.batch_size and episode >= self.learning_starts:
@@ -387,24 +391,27 @@ class MultiAgentDuelingDQNAgent:
 					self.save_model(name=f'Episode_{episode}_Policy.pth')
 
 			if self.eval_every is not None:
-				if episode % self.eval_every == 0:
+				if episode % self.eval_every == 0 and write_log:
 					mean_reward, mean_length, mean_error = self.evaluate_env(self.eval_episodes)
 					self.writer.add_scalar('test/accumulated_reward', mean_reward, self.episode)
 					self.writer.add_scalar('test/accumulated_length', mean_length, self.episode)
 					self.writer.add_scalar('test/mean_error', mean_error, self.episode)
 
-					if mean_reward > record:
-						print(f"New best policy with mean reward of {mean_reward}")
-						print("Saving model in " + self.writer.log_dir)
+					if mean_reward > record:	
+						if verbose:
+							print(f"New best policy with mean reward of {mean_reward}")
+							print("Saving model in " + self.writer.log_dir)
 						record = mean_reward
 						try:
 							self.save_model(name='BestPolicy.pth')
 						except:
 							print("Error saving model")
 
-					
 		# Save the final policy #
 		self.save_model(name='FinalPolicy.pth')
+
+		# Return the final score #
+		return self.evaluate_env(self.eval_episodes)
 
 	def _compute_dqn_loss(self, samples: Dict[str, np.ndarray]) -> torch.Tensor:
 

@@ -23,6 +23,8 @@ parser.add_argument('--w_reward_weight', type=float, default=1.0, help='The rewa
 parser.add_argument('--i_reward_weight', type=float, default=1.0, help='The reward weights of the agents.')
 parser.add_argument('--model', type=str, default='miopic')
 parser.add_argument('--device', type=str, default='cuda:0', help='The device to use.', choices=['cpu', 'cuda:0', 'cuda:1'])
+parser.add_argument('--jobs', type=int, default=1, help='The device to use.')
+
 
 # Compose a name for the experiment
 args = parser.parse_args()
@@ -119,7 +121,7 @@ if __name__ == "__main__":
 
     study = optuna.create_study(direction="maximize", pruner=optuna.pruners.MedianPruner(), study_name="DQN_hyperparametrization")
 
-    study.optimize(objective, n_trials=40, n_jobs=1)
+    study.optimize(objective, n_trials=40, n_jobs=args.jobs)
 
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
     complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])

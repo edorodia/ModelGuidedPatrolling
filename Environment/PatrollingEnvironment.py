@@ -10,6 +10,8 @@ from gym import spaces
 from Models.KNNmodel import KNNmodel, RKNNmodel
 from Models.MiopicModel import MiopicModel
 from Models.GaussianProcessModel import GaussianProcessModel
+from Models.PolinomialRegressor import PolinomialRegressor
+from Models.SVRegressor import SVRegressor
 from Models.UnetModel import UnetDeepModel, benchmark_2_path
 
 from sklearn.metrics import mean_squared_error, r2_score
@@ -126,7 +128,6 @@ class Vehicle:
 			return True
 		else:
 			return not self.navigation_map[c_position[0], c_position[1]].astype(bool)
-
 
 class CoordinatedFleet:
 
@@ -277,7 +278,6 @@ class CoordinatedFleet:
 		for vehicle_id in self.vehicles_ids:
 			self.idleness_map[np.where(self.vehicles[vehicle_id].influence_mask != 0)] = 0
 	
-
 class DiscreteModelBasedPatrolling:
 
 	def __init__(self,
@@ -366,6 +366,10 @@ class DiscreteModelBasedPatrolling:
 			self.model = UnetDeepModel(navigation_map=self.navigation_map, model_path = benchmark_2_path[benchmark], resolution=self.resolution, influence_radius=self.influence_radius, dt = 0.01)
 		elif model == 'gp':
 			self.model = GaussianProcessModel(navigation_map=self.navigation_map, resolution=self.resolution, influence_radius=self.influence_radius, dt = 0.01)
+		elif model == 'poly':
+			self.model = PolinomialRegressor(navigation_map=self.navigation_map, degree=4)
+		elif model == 'svr':
+			self.model = SVRegressor(navigation_map=self.navigation_map)
 		else:
 			raise ValueError('Unknown model')
 
@@ -620,20 +624,19 @@ if __name__ == "__main__":
 								dynamic=False,
 								reward_weights=[10, 10],
 								reward_type='local_changes',
-								model='miopic',
+								model='svr',
 								seed=50000,
 								)
 
 	for m in range(10):
 		
 		env.reset()
-		env.reset()
 		done = {i: False for i in range(N)}
 
 		mse = []
 		rewards_list = []
 		#agent = {i: LawnMowerAgent( world=scenario_map, number_of_actions=8, movement_length= 3, forward_direction=0, seed=0) for i in range(N)}
-		agent = {i: WanderingAgent( world=scenario_map, number_of_actions=8, movement_length= 3, seed=0) for i in range(N)}
+		agent = {i: WanderingAgent( world=scenario_map, number_of_actions=8, movement_length= 4, seed=0) for i in range(N)}
 		
 		while not all(done.values()):
 
@@ -641,7 +644,6 @@ if __name__ == "__main__":
 			actions = {i: agent[i].move(env.fleet.vehicles[i].position.astype(int)) for i in done.keys() if not done[i]}
 			observations, rewards, done, info = env.step(actions)
 
-			print(env.normalization_value)
 
 			for i in range(N):
 				# If rewards dict does not contain the key, add it with 0 value #
@@ -658,6 +660,7 @@ if __name__ == "__main__":
 			mse.append(np.mean(np.sqrt(info['mse'])))
 
 		
+		"""
 		plt.close()
 
 		plt.plot(mse)
@@ -669,4 +672,4 @@ if __name__ == "__main__":
 		plt.plot(np.cumsum(np.asarray(rewards_list), axis =0))
 
 		plt.show()
-		
+		"""

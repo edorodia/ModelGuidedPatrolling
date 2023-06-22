@@ -19,7 +19,7 @@ parser.add_argument('--max_distance', type=int, default=300, help='The maximum d
 parser.add_argument('--w_reward_weight', type=float, default=1.0, help='The reward weights of the agents.')
 parser.add_argument('--i_reward_weight', type=float, default=1.0, help='The reward weights of the agents.')
 parser.add_argument('--model', type=str, default='miopic')
-parser.add_argument('--device', type=int, default=0, help='The device to use.', choices=[-1, 1, 1])
+parser.add_argument('--device', type=int, default=0, help='The device to use.', choices=[-1, 0, 1])
 
 # Compose a name for the experiment
 args = parser.parse_args()

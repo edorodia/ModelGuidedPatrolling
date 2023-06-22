@@ -19,7 +19,7 @@ parser.add_argument('--max_distance', type=int, default=300, help='The maximum d
 parser.add_argument('--w_reward_weight', type=float, default=1.0, help='The reward weights of the agents.')
 parser.add_argument('--i_reward_weight', type=float, default=1.0, help='The reward weights of the agents.')
 parser.add_argument('--model', type=str, default='miopic')
-parser.add_argument('--device', type=str, default='cuda:0', help='The device to use.', choices=['cpu', 'cuda:0', 'cuda:1'])
+parser.add_argument('--device', type=int, default=0, help='The device to use.', choices=[-1, 1, 1])
 
 # Compose a name for the experiment
 args = parser.parse_args()
@@ -38,6 +38,9 @@ initial_positions = np.array([[42,32],
 							  [43,44],
 							  [35,45]])
 
+device = 'cpu' if args.device == -1 else f'cuda:{args.device}'
+
+
 env = DiscreteModelBasedPatrolling(n_agents=N,
 								navigation_map=navigation_map,
 								initial_positions=initial_positions,
@@ -55,7 +58,7 @@ env = DiscreteModelBasedPatrolling(n_agents=N,
 								seed=args.seed,)
 
 multiagent = MultiAgentDuelingDQNAgent(env=env,
-									memory_size=int(1E6),
+									memory_size=int(1E5),
 									batch_size=64,
 									target_update=1000,
 									soft_update=True,
@@ -70,7 +73,7 @@ multiagent = MultiAgentDuelingDQNAgent(env=env,
 									save_every=5000,
 									distributional=False,
 									masked_actions=True,
-									device=args.device,
+									device=device,
 				logdir=f'runs/DRL/{experiment_name}',
 				eval_episodes=10,
 				eval_every=1000)

@@ -15,10 +15,10 @@ parser.add_argument('--movement_length', type=int, default=2, help='The movement
 parser.add_argument('--resolution', type=int, default=1, help='The resolution of the environment.')
 parser.add_argument('--influence_radius', type=int, default=2, help='The influence radius of the agents.')
 parser.add_argument('--forgetting_factor', type=int, default=2, help='The forgetting factor of the agents.')
-parser.add_argument('--max_distance', type=int, default=300, help='The maximum distance of the agents.')
-parser.add_argument('--w_reward_weight', type=float, default=1.0, help='The reward weights of the agents.')
-parser.add_argument('--i_reward_weight', type=float, default=1.0, help='The reward weights of the agents.')
-parser.add_argument('--model', type=str, default='miopic')
+parser.add_argument('--max_distance', type=int, default=200, help='The maximum distance of the agents.')
+parser.add_argument('--w_reward_weight', type=float, default=10.0, help='The reward weights of the agents.')
+parser.add_argument('--i_reward_weight', type=float, default=10.0, help='The reward weights of the agents.')
+parser.add_argument('--model', type=str, default='miopic', choices=['miopic', 'vaeUnet'], help='The model to use.')
 parser.add_argument('--device', type=int, default=0, help='The device to use.', choices=[-1, 0, 1])
 
 # Compose a name for the experiment
@@ -47,7 +47,7 @@ env = DiscreteModelBasedPatrolling(n_agents=N,
 								model_based=True,
 								movement_length=args.movement_length,
 								resolution=1,
-								influence_radius=args.movement_length,
+								influence_radius=1.5 if args.benchmark == 'algae_bloom' else 2.0,
 								forgetting_factor=args.forgetting_factor,
 								max_distance=args.max_distance,
 								benchmark=args.benchmark,

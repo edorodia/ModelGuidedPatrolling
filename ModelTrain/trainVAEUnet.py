@@ -1,8 +1,9 @@
 import sys 
 sys.path.append('.')
 from ModelTrain.dataset import StaticDataset
-from Models.unet import UNet
+from Models.unet import VAEUnet
 import torch as th
+import torch.nn.functional as F
 import numpy as np
 from torch.utils.data import DataLoader
 import torchvision.transforms as transforms
@@ -16,20 +17,21 @@ import argparse
 argparser = argparse.ArgumentParser()
 
 argparser.add_argument('--benchmark', type=str, default='algae_bloom', choices=['algae_bloom', 'shekel'])
-argparser.add_argument('--epochs', type=int, default=50)
+argparser.add_argument('--epochs', type=int, default=30)
 argparser.add_argument('--batch_size', type=int, default=64)
 argparser.add_argument('--lr', type=float, default=1e-3)
 argparser.add_argument('--weight_decay', type=float, default=0)
 argparser.add_argument('--device', type=str, default='cuda:0', choices=['cuda:0', 'cuda:1', 'cpu']) 
-argparser.add_argument('--scale', type=int, default=1) 
+argparser.add_argument('--scale', type=int, default=2) 
+
 
 args = argparser.parse_args()
 
 benchmark = args.benchmark
-train_traj_file_name = 'ModelTrain/Data/trajectories_' + benchmark + '_train.npy'
-train_gt_file_name = 'ModelTrain/Data/gts_' + benchmark + '_train.npy'
-test_traj_file_name = 'ModelTrain/Data/trajectories_' + benchmark + '_test.npy'
-test_gt_file_name = 'ModelTrain/Data/gts_' + benchmark + '_test.npy'
+train_traj_file_name = 'ModelTrain/Data/trajectories_' + benchmark + '_train_other.npy'
+train_gt_file_name = 'ModelTrain/Data/gts_' + benchmark + '_train_other.npy'
+test_traj_file_name = 'ModelTrain/Data/trajectories_' + benchmark + '_test_other.npy'
+test_gt_file_name = 'ModelTrain/Data/gts_' + benchmark + '_test_other.npy'
 
 # Create the dataset
 dataset = StaticDataset(path_trajectories = train_traj_file_name, 
@@ -56,7 +58,8 @@ device_str = args.device
 device = th.device(device_str)
 
 # Import the model
-model = UNet(n_channels_in=2, n_channels_out=1, bilinear=False, scale=2).to(device)
+input_shape = dataset.trajectories.shape[2:]
+model = VAEUnet(input_shape=input_shape, n_channels_in=2, n_channels_out=1, bilinear=False, scale=args.scale).to(device)
 
 # Define the optimizer
 optimizer = th.optim.Adam(model.parameters(), lr = args.lr)
@@ -68,9 +71,9 @@ N_epochs = args.epochs
 # Start the training loop
 
 # Remove the previous tensorboard log and create a new one with the current time
-dir_path = 'runs/TrainingUnet/Unet_{}_{}'.format(benchmark, time.strftime("%Y%m%d-%H%M%S"))
+dir_path = 'runs/TrainingUnet/VAEUnet_{}_{}'.format(benchmark, time.strftime("%Y%m%d-%H%M%S"))
 os.system('rm -rf ' + dir_path)
-writer = tb.SummaryWriter(log_dir=dir_path, comment='Unet_training_{}'.format(benchmark))
+writer = tb.SummaryWriter(log_dir=dir_path, comment='VAEUnet_training_{}'.format(benchmark))
 
 mask_tensor = th.Tensor(mask).float().to(device)
 
@@ -78,6 +81,9 @@ mask_tensor = th.Tensor(mask).float().to(device)
 for epoch in tqdm(range(N_epochs), desc="Epochs: "):
 
 	running_loss = []
+	running_loss_mse = []
+	running_loss_kl = []
+	running_loss_perceptual = []
 	model.train()
 
 	for i, data in tqdm(enumerate(dataloader), desc="Batches: ", total= len(dataset) // args.batch_size + 1):
@@ -92,13 +98,16 @@ for epoch in tqdm(range(N_epochs), desc="Epochs: "):
 			batch_gt = batch_gt.unsqueeze(1)
 
 		# Forward pass
-		output = model(batch)
+		output, prior, posterior = model(batch, batch_gt)
 
 		# Compute the loss
-		loss = model.compute_loss(x_predicted=output, x_gt=batch_gt, mask=mask_tensor)
+		loss, recon_loss, kl_loss, perceptual_loss = model.compute_loss(x = batch[:,1,:,:], x_true = batch_gt, x_out = output, prior = prior, posterior = posterior, beta = 0.01, alpha=0.5)
 
 		# Add the loss to the running loss
 		running_loss.append(loss.item())
+		running_loss_mse.append(recon_loss.item())
+		running_loss_kl.append(kl_loss.item())
+		running_loss_perceptual.append(perceptual_loss.item())
 		
 		# Reset the gradients
 		optimizer.zero_grad()
@@ -126,32 +135,48 @@ for epoch in tqdm(range(N_epochs), desc="Epochs: "):
 			batch_gt = batch_gt.unsqueeze(1)
 
 			# Forward pass
-			output = model(batch)
+			output = model.forward_with_prior(batch)
 			# Compute the loss
-			test_loss = model.compute_loss(x_predicted=output, x_gt=batch_gt, mask=mask_tensor)
+			test_loss = F.mse_loss(output, batch_gt)
 
 			# Add the loss to the running loss
-			running_test_loss.append(test_loss.item())
 
 	# Save the model if the loss is lower than the previous one
 	if epoch == 0:
-		min_loss = np.mean(running_test_loss)
-	elif np.mean(running_test_loss) < min_loss:
-		th.save(model.state_dict(), dir_path + '/Unet_{}_test.pth'.format(benchmark))
-		#print("Model saved at epoch {}".format(epoch))
-		min_loss = np.mean(running_test_loss)
+		min_loss = test_loss
+	elif test_loss < min_loss:
+		while True:
+			try:
+				th.save(model.state_dict(), dir_path + '/VAEUnet_{}_test.pth'.format(benchmark))
+				print("Best Model saved at epoch {}".format(epoch))
+				min_loss = test_loss
+				break
+			except:
+				print("Error while saving the model")
+				time.sleep(1)
+				continue
 	else:
-		th.save(model.state_dict(), dir_path + '/Unet_{}_train.pth'.format(benchmark))
+		while True:
+			try:
+				th.save(model.state_dict(), dir_path + '/VAEUnet_{}_train.pth'.format(benchmark))
+				break
+			except:
+				print("Error while saving the model")
+				time.sleep(1)
+				continue
 
 
 	# Add the test loss to the tb writer
-	writer.add_scalar('Test/Loss', np.mean(running_test_loss), epoch)
+	writer.add_scalar('Test/Loss', test_loss, epoch)
+	writer.add_scalar('Test/Loss_mse', running_loss_mse[-1], epoch)
+	writer.add_scalar('Test/Loss_KL', running_loss_kl[-1], epoch)
+	writer.add_scalar('Test/Loss_perceptual', running_loss_perceptual[-1], epoch)
 
 	# Add the loss to the tb writer
-	writer.add_scalar('Train/Loss', np.mean(running_loss), epoch)
+	writer.add_scalar('Train/Loss', running_loss[-1], epoch)
 
 	# Print the loss
-	print("\nEpoch: {}/{} Train Loss: {:.3f} Test Loss: {:.3f}\n".format(epoch, N_epochs, np.mean(running_test_loss), np.mean(running_test_loss)))
+	print("\nEpoch: {}/{} Train Loss: {:.3f}, Recon loss: {:.3f}, KL loss: {:.3f}, Perceptual loss: {:.3f},  Test Loss: {:.3f}\n".format(epoch, N_epochs, running_loss[-1], running_loss_mse[-1], running_loss_kl[-1], running_loss_perceptual[-1], test_loss))
 
 
 

@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from ModelTrain.dataset import StaticDataset
-from Models.unet import UNet
+from Models.unet import VAEUnet
 from Environment.GroundTruths.AlgaeBloomGroundTruth import algae_colormap
 import colorcet as cc
 
@@ -22,18 +22,19 @@ mask = np.genfromtxt('Environment/Maps/map.txt', delimiter=' ')
 device = th.device('cuda' if th.cuda.is_available() else 'cpu')
 
 # Create the dataset
-dataset = StaticDataset(path_trajectories = 'ModelTrain/Data/trajectories_{}_test.npy'.format(args.benchmark),
-						path_gts = 'ModelTrain/Data/gts_{}_test.npy'.format(args.benchmark),
+dataset = StaticDataset(path_trajectories = 'ModelTrain/Data/trajectories_{}_test_other.npy'.format(args.benchmark),
+						path_gts = 'ModelTrain/Data/gts_{}_test_other.npy'.format(args.benchmark),
 						transform=None)
 
 
 # Load the model
-model = UNet(n_channels_in=2, n_channels_out=1, bilinear=False, scale=2).to(device)
+input_shape = dataset.trajectories.shape[2:]
+model = VAEUnet(input_shape=input_shape, n_channels_in=2, n_channels_out=1, bilinear=False, scale=2).to(device)
 
 if args.benchmark == 'shekel':
-	model_path = 'runs/TrainingUnet/Unet_shekel/Unet_shekel_train.pth'
+	model_path = 'runs/TrainingUnet/VAEUnet_shekel/VAEUnet_shekel_train.pth'
 elif args.benchmark == 'algae_bloom':
-	model_path = 'runs/TrainingUnet/Unet_algae_bloom/Unet_algae_bloom_train.pth'
+	model_path = 'runs\TrainingUnet\VAEUnet_algae_bloom_20230816-141157\VAEUnet_algae_bloom_test.pth'
 
 
 model.load_state_dict(th.load(model_path))
@@ -65,18 +66,19 @@ axs[4].set_title('Difference')
 for i in range(len(dataset)):
 
 	data_test = th.Tensor(dataset[i][0]).float().unsqueeze(0).to(device)
-	output = model(data_test)
+	# output = model.forward_with_prior(data_test)
+
+
+	output = model.imagine(N=10, x=data_test).cpu().squeeze(0).detach().numpy()* mask
 
 	input_data = data_test[0,1,:,:].detach().cpu().numpy() * mask
 	input_data2 = data_test[0,0,:,:].detach().cpu().numpy()
-	output_data = output[0,0,:,:].detach().cpu().numpy() * mask
 	real_data = dataset[i][1] * mask
 
 	d0.set_data(input_data)
-	d1.set_data(output_data)
+	d1.set_data(output)
 	d2.set_data(np.abs(real_data))
 	d5.set_data(input_data2)
-	im.set_data(np.abs(output_data - real_data))
 
 
 	# Colorbar of the difference
@@ -85,6 +87,6 @@ for i in range(len(dataset)):
 	fig.canvas.draw()
 	fig.canvas.flush_events()
 
-	plt.pause(0.01)
+	plt.pause(0.1)
 
 	# plt.show()

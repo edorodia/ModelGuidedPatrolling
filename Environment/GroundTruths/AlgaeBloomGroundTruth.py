@@ -25,8 +25,8 @@ class algae_bloom:
         self.current_field_fn = np.vectorize(self.current_field, signature="(n) -> (n)")
         self.apply_bounds_fn = np.vectorize(self.apply_bounds, signature="(n) -> (n)")
 
-        self.contour_currents_y = convolve(self.grid, np.array([[0,0,0],[0,1,-1],[0,0,0]]), mode='constant')*2
-        self.contour_currents_x = convolve(self.grid, np.array([[0,0,0],[0,1,0],[0,-1,0]]), mode='constant')*2
+        self.contour_currents_y = convolve(self.grid, np.array([[0,0,0],[0,1,-1],[0,0,0]]), mode='constant')*5
+        self.contour_currents_x = convolve(self.grid, np.array([[0,0,0],[0,1,0],[0,-1,0]]), mode='constant')*5
 
     def reset(self):
 
@@ -130,7 +130,7 @@ class algae_bloom:
             self.d.set_data(f_map)
 
         self.fig.canvas.draw()
-        plt.pause(0.01)
+        plt.pause(0.001)
     
     def read(self, position = None):
         
@@ -152,7 +152,7 @@ if __name__ == '__main__':
         gt.reset()
         gt.render()
 
-        for t in range(50):
+        for t in range(100):
             m = gt.step()
             gt.render()    
 

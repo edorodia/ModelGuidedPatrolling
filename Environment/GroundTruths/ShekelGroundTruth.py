@@ -96,6 +96,7 @@ class shekel(object):
         else:
             self.ax_plot.set_data(self.read())
             
+            
         plt.draw()
         plt.pause(0.1)
 

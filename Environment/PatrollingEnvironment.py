@@ -12,7 +12,7 @@ from Models.MiopicModel import MiopicModel
 from Models.GaussianProcessModel import GaussianProcessModel
 from Models.PolinomialRegressor import PolinomialRegressor
 from Models.SVRegressor import SVRegressor
-from Models.UnetModel import UnetDeepModel, benchmark_2_path
+from Models.UnetModel import UnetDeepModel, benchmark_2_path, VAEUnetDeepModel, benchmark_2_vae_path
 
 from sklearn.metrics import mean_squared_error, r2_score
 
@@ -61,8 +61,8 @@ class Vehicle:
 
 		# Compute the coordinates of the circle #
 		x, y = np.meshgrid(np.arange(0, influence_mask.shape[1]), np.arange(0, influence_mask.shape[0]))
-		x = x - self.position[1]
-		y = y - self.position[0]
+		x = x - self.position[1].astype(int)
+		y = y - self.position[0].astype(int)
 
 		# Compute the distance from the center #
 		distance = np.sqrt(x**2 + y**2)
@@ -245,11 +245,6 @@ class CoordinatedFleet:
 		self.fig.canvas.flush_events()
 		plt.pause(0.1)
 
-	def __del__(self):
-		
-		if self.fig is not None:
-			plt.close()
-
 	def redundancy_mask(self):
 
 		# Sum all the influence masks #
@@ -323,26 +318,18 @@ class DiscreteModelBasedPatrolling:
 		self.lambda_W = reward_weights[0]
 		self.lambda_I = reward_weights[1]
 
+		self.max_num_steps = (forgetting_factor*self.max_distance)//self.move_length
+
 		""" Create the fleet """
 		self.fleet = CoordinatedFleet(n_vehicles=self.n_agents,
 									  initial_positions=self.initial_positions,
 									  navigation_map=self.navigation_map,
 									  total_max_distance=self.max_distance,
 									  influence_radius=self.influence_radius,
-									  max_num_of_steps=(forgetting_factor*self.max_distance)//self.move_length,)
+									  max_num_of_steps=self.max_num_steps,)
+
 		
-		# Compute the normalization value #
-		example_vehicle = Vehicle(initial_positions=np.asarray([50,50]),
-								navigation_map=np.ones((100,100)),
-								total_max_distance=self.max_distance,
-								influence_radius=self.influence_radius)
-		example_vehicle.reset()
-
-		influence_mask_0 = example_vehicle._influence_mask()
-		example_vehicle.move(self.movement_length, 0)
-		influence_mask_1 = example_vehicle._influence_mask()
-
-		self.normalization_value = np.sum(np.clip(influence_mask_1 - influence_mask_0,0,1))
+		
 
 		""" Create the observation space """
 
@@ -364,6 +351,8 @@ class DiscreteModelBasedPatrolling:
 			self.model = RKNNmodel(navigation_map=self.navigation_map, resolution=self.resolution, influence_radius=self.influence_radius*2, dt = 0.01)
 		elif model == 'deepUnet':
 			self.model = UnetDeepModel(navigation_map=self.navigation_map, model_path = benchmark_2_path[benchmark], resolution=self.resolution, influence_radius=self.influence_radius, dt = 0.01)
+		elif model == 'vaeUnet':
+			self.model = VAEUnetDeepModel(navigation_map=self.navigation_map, model_path = benchmark_2_vae_path[benchmark], resolution=self.resolution, influence_radius=self.influence_radius, dt = 0.01, N_imagined=1)
 		elif model == 'gp':
 			self.model = GaussianProcessModel(navigation_map=self.navigation_map, resolution=self.resolution, influence_radius=self.influence_radius, dt = 0.01)
 		elif model == 'poly':
@@ -378,9 +367,9 @@ class DiscreteModelBasedPatrolling:
 
 		""" Create the benchmark """
 		if benchmark == 'shekel':
-			self.ground_truth = shekel(self.navigation_map, max_number_of_peaks=6, seed = self.seed, dt=0.05)
+			self.ground_truth = shekel(self.navigation_map, max_number_of_peaks=6, seed = self.seed, dt=0.02)
 		elif benchmark == 'algae_bloom':
-			self.ground_truth = algae_bloom(self.navigation_map, dt=0.5, seed=self.seed)
+			self.ground_truth = algae_bloom(self.navigation_map, dt=0.05, seed=self.seed)
 		else:
 			raise ValueError('Unknown benchmark')
 
@@ -468,9 +457,8 @@ class DiscreteModelBasedPatrolling:
 		self.previous_model = self.model.predict().copy()
 
 		# Update the model #
-		if self.dynamic:
-			self.model.update(positions, values, np.ones_like(values)*self.steps)
-		elif self.model_str == 'deepUnet':
+
+		if self.model_str == 'deepUnet' or self.model_str == 'vaeUnet':
 			self.model.update(positions, values, self.fleet.idleness_map)
 		else:
 			self.model.update(positions, values)
@@ -568,26 +556,29 @@ class DiscreteModelBasedPatrolling:
 			self.axs = self.axs.flatten()
 
 			# Plot the navigation map #
-			#self.d0 = self.axs[0].imshow(self.observations[list(self.fleet.vehicles_ids)[0]][0], cmap='gray', vmin=0, vmax=1)
-			self.d0 = self.axs[0].imshow(self.ground_truth.read(), cmap='gray', vmin=0, vmax=1)
+			self.d0 = self.axs[0].imshow(self.observations[list(self.fleet.vehicles_ids)[0]][0], cmap='coolwarm', vmin=0, vmax=1)
+			#self.d0 = self.axs[0].imshow(self.ground_truth.read(), cmap='gray', vmin=0, vmax=1)
 			self.axs[0].set_title('Navigation map')
-			self.d1 = self.axs[1].imshow(self.observations[list(self.fleet.vehicles_ids)[0]][1], cmap='gray', vmin=0, vmax=1)
+			self.d1 = self.axs[1].imshow(self.observations[list(self.fleet.vehicles_ids)[0]][1], cmap='coolwarm', vmin=0, vmax=1)
 			self.axs[1].set_title('Agent Position')
-			self.d2 = self.axs[2].imshow(self.observations[list(self.fleet.vehicles_ids)[0]][2], cmap='gray', vmin=0, vmax=1)
+			self.d2 = self.axs[2].imshow(self.observations[list(self.fleet.vehicles_ids)[0]][2], cmap='coolwarm', vmin=0, vmax=1)
 			self.axs[2].set_title('Fleet Position')
-			self.d3 = self.axs[3].imshow(self.observations[list(self.fleet.vehicles_ids)[0]][3], cmap='gray', vmin=0, vmax=1)
+			self.d3 = self.axs[3].imshow(self.observations[list(self.fleet.vehicles_ids)[0]][3], cmap='coolwarm', vmin=0, vmax=1)
 			self.axs[3].set_title('Model')
-			self.d4 = self.axs[4].imshow(self.observations[list(self.fleet.vehicles_ids)[0]][4], cmap='gray', vmin=0, vmax=1)
+			self.d4 = self.axs[4].imshow(self.observations[list(self.fleet.vehicles_ids)[0]][4], cmap='coolwarm', vmin=0, vmax=1)
 			self.axs[4].set_title('idleness')
+			self.d5 = self.axs[5].imshow(self.ground_truth.read(), cmap='coolwarm', vmin=0, vmax=1)
+			plt.colorbar(self.d0, ax=self.axs[0])
 
 		else:
 
-			#self.d0.set_data(self.observations[list(self.fleet.vehicles_ids)[0]][0])
-			self.d0.set_data(self.ground_truth.read())
+			self.d0.set_data(self.observations[list(self.fleet.vehicles_ids)[0]][0])
+			#self.d0.set_data(self.ground_truth.read())
 			self.d1.set_data(self.observations[list(self.fleet.vehicles_ids)[0]][1])
 			self.d2.set_data(self.observations[list(self.fleet.vehicles_ids)[0]][2])
 			self.d3.set_data(self.observations[list(self.fleet.vehicles_ids)[0]][3])
 			self.d4.set_data(self.observations[list(self.fleet.vehicles_ids)[0]][4])
+			self.d5.set_data(self.ground_truth.read())
 
 		self.fig.canvas.draw()
 		self.fig.canvas.flush_events()
@@ -615,16 +606,16 @@ if __name__ == "__main__":
 								navigation_map=scenario_map,
 								initial_positions=initial_positions,
 								model_based=True,
-								movement_length=3,
+								movement_length=2,
 								resolution=1,
 								influence_radius=2,
 								forgetting_factor=2,
 								max_distance=100,
 								benchmark='shekel',
-								dynamic=False,
+								dynamic=True,
 								reward_weights=[10, 10],
 								reward_type='local_changes',
-								model='svr',
+								model='vaeUnet',
 								seed=50000,
 								)
 

@@ -111,6 +111,82 @@ class DuelingVisualNetwork(nn.Module):
 
 		return q
 
+class RecurrentDuelingVisualNetwork(nn.Module):
+
+	def __init__(
+			self,
+			in_dim: tuple,
+			out_dim: int,
+			number_of_features: int,
+	):
+		"""Initialization."""
+		super(DuelingVisualNetwork, self).__init__()
+
+		self.out_dim = out_dim
+
+		# set common feature layer
+		self.feature_layer = nn.Sequential(
+			FeatureExtractor(in_dim, number_of_features),
+			nn.Linear(number_of_features, 256),
+			nn.ReLU(),
+			nn.Linear(256, 256),
+			nn.ReLU(),
+			nn.Linear(256, 256),
+			nn.ReLU(),
+		)
+
+		# Recurrent layer (LSTM)
+		self.lstm = nn.LSTMCell(256, 256)
+		self.lstm_hidden = (torch.zeros(1, 256), torch.zeros(1, 256))
+
+		# set advantage layer
+		self.advantage_hidden_layer = nn.Linear(256, 64)
+		self.advantage_layer = nn.Linear(64, out_dim)
+
+		# set value layer
+		self.value_hidden_layer = nn.Linear(256, 64)
+		self.value_layer = nn.Linear(64, 1)
+
+	def initLSTM(self):
+		""" Zero out the hidden state of the LSTM """
+		self.lstm_hidden = (torch.zeros(1, 1, 256), torch.zeros(1, 1, 256))
+
+	def forward(self, x: torch.Tensor) -> torch.Tensor:
+		"""Forward one observation. """
+		feature = self.feature_layer(x)
+
+		# LSTM - The LSTM will reset itself when the episode ends
+		self.lstm_hidden = self.lstm(feature)
+		feature = self.lstm_hidden[0]
+
+		adv_hid = F.relu(self.advantage_hidden_layer(feature))
+		val_hid = F.relu(self.value_hidden_layer(feature))
+
+		value = self.value_layer(val_hid)
+		advantage = self.advantage_layer(adv_hid)
+
+		q = value + advantage - advantage.mean(dim=-1, keepdim=True)
+
+		return q
+
+	def forward_with_hidden(x: torch.Tensor, hidden: torch.Tensor = None) -> torch.Tensor:
+		"""Forward one observation. """
+		feature = self.feature_layer(x)
+
+		# LSTM - The LSTM will reset itself when the episode ends
+		self.lstm_hidden = self.lstm(feature, hidden)
+		feature = self.lstm_hidden[0]
+
+		adv_hid = F.relu(self.advantage_hidden_layer(feature))
+		val_hid = F.relu(self.value_hidden_layer(feature))
+
+		value = self.value_layer(val_hid)
+		advantage = self.advantage_layer(adv_hid)
+
+		q = value + advantage - advantage.mean(dim=-1, keepdim=True)
+
+		return q, self.lstm_hidden
+
 class NoisyDuelingVisualNetwork(nn.Module):
 
 	def __init__(

@@ -75,7 +75,7 @@ def objective(trial: optuna.Trial):
 								seed=args.seed,)
 
     multiagent = MultiAgentDuelingDQNAgent(env=env,
-                                        memory_size=int(1E6),
+                                        memory_size=int(1E5),
                                         batch_size=batch_size,
                                         target_update=1000,
                                         soft_update=True,

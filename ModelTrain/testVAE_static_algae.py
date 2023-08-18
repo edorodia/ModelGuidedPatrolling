@@ -32,7 +32,7 @@ dataset = StaticDataset(path_trajectories = 'ModelTrain/Data/trajectories_static
 #model = VAE(input_size=dataset[0][0].shape, latent_size=256, output_channels=1, loss_weights = None).to(device)
 model = SegNet(input_size=dataset[0][0].shape, latent_size=256, output_channels=1, loss_weights = None).to(device)
 #model.load_state_dict(th.load('runs\TrainingVAE\VAE_Algae_20230525-224602\VAE_static_algae_8.pth'))
-model.load_state_dict(th.load('runs\TrainingEncoderDecoder\EncDec_Algae_20230526-154422\EncDec_static_algae_train.pth'))
+model.load_state_dict(th.load('runs\TrainingUnet\VAEUnet_algae_bloom_20230816-131702\VAEUnet_algae_bloom_test.pth'))
 
 # Test the model
 model.eval()

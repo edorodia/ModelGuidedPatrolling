@@ -20,7 +20,7 @@ argparser.add_argument('--frameskip', type=int, default=1)
 argparser.add_argument('--max_frames', type=int, default=100)
 argparser.add_argument('--N_episodes', type=int, default=100)
 argparser.add_argument('--parallel', type=bool, default=True)
-argparser.add_argument('--benchmark', type=str, default='shekel', choices=['algae_bloom', 'shekel'])
+argparser.add_argument('--benchmark', type=str, default='algae_bloom', choices=['algae_bloom', 'shekel'])
 argparser.add_argument('--set', type=str, default='test', choices=['train', 'test'])
 argparser.add_argument('--random', type=bool, default=False)
 
@@ -55,7 +55,7 @@ def generate_trajectory(seed):
 								model_based=True,
 								movement_length=2,
 								resolution=1,
-								influence_radius=2,
+								influence_radius=1.5 if args.benchmark == 'algae_bloom' else 2,
 								forgetting_factor=2,
 								max_distance=200,
 								benchmark=args.benchmark,
@@ -127,7 +127,7 @@ if __name__ == "__main__":
 	if parallel:
 		
 		# Create a Pool of sub-processes
-		pool = mp.Pool(5)
+		pool = mp.Pool(8)
 		# Generate the trajectories in parallel 
 		trajectories = pool.map(generate_trajectory, range(seed_start, seed_end))
 		# Close the pool
@@ -142,9 +142,9 @@ if __name__ == "__main__":
 
 	# Save the trajectories 
 
-	file_name = 'ModelTrain/Data/trajectories_' + benchmark + '_' + dataset + '.npy'
+	file_name = 'ModelTrain/Data/trajectories_' + benchmark + '_' + dataset + '_other.npy'
 	np.save(file_name, observations)
-	file_name = 'ModelTrain/Data/gts_' + benchmark + '_' + dataset + '.npy'
+	file_name = 'ModelTrain/Data/gts_' + benchmark + '_' + dataset + '_other.npy'
 	np.save(file_name, gts)
 
 

@@ -425,12 +425,15 @@ class MultiAgentDuelingDQNAgent:
 		"""Return dqn loss."""
 		device = self.device  # for shortening the following lines
 
+		state = samples["obs"]
+		next_state = samples["next_obs"]
+
 		if self.env.int_observation:
 				state = state.astype(np.float32) / 255.0
 				next_state = next_state.astype(np.float32) / 255.0
-				
-		state = torch.FloatTensor(samples["obs"]).to(device)
-		next_state = torch.FloatTensor(samples["next_obs"]).to(device)
+		
+		state = torch.FloatTensor(state).to(device)
+		next_state = torch.FloatTensor(next_state).to(device)
 		action = torch.LongTensor(samples["acts"]).to(device)
 		reward = torch.FloatTensor(samples["rews"].reshape(-1, 1)).to(device)
 		done = torch.FloatTensor(samples["done"].reshape(-1, 1)).to(device)

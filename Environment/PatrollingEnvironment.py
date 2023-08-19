@@ -292,6 +292,7 @@ class DiscreteModelBasedPatrolling:
 				dynamic: bool = True,
 				seed: int = 0,
 				random_gt: bool = True,
+				int_observation: bool = False,
 				):
 		
 		""" Copy attributes """
@@ -312,6 +313,8 @@ class DiscreteModelBasedPatrolling:
 		self.seed = seed
 		self.dynamic = dynamic
 		self.random_gt = random_gt
+
+		self.int_observation = int_observation	
 
 		self.visitable_positions = np.column_stack(np.where(self.navigation_map == 1))
 
@@ -480,14 +483,26 @@ class DiscreteModelBasedPatrolling:
 		observations = {}
 
 		for vehicle_id in self.fleet.vehicles_ids:
+
+			if self.int_observation:
+
+				observations[vehicle_id] = np.concatenate((
+					(255 * self.navigation_map[np.newaxis]).astype(np.uint8),
+					(255 *(0.5*self.fleet.get_vehicle_position_map(observer=vehicle_id) + 0.5*self.fleet.vehicles[vehicle_id].influence_mask)[np.newaxis]).astype(np.uint8),
+					(255 * self.fleet.get_fleet_position_map(observers=vehicle_id)[np.newaxis]).astype(np.uint8),
+					(255 * self.fleet.idleness_map[np.newaxis]).astype(np.uint8),
+					(255 * self.model.predict()[np.newaxis]).astype(np.uint8),
+					), axis=0)
+
+			else:
 			
-			observations[vehicle_id] = np.concatenate((
-				self.navigation_map[np.newaxis],
-				(0.5*self.fleet.get_vehicle_position_map(observer=vehicle_id) + 0.5*self.fleet.vehicles[vehicle_id].influence_mask)[np.newaxis],
-				self.fleet.get_fleet_position_map(observers=vehicle_id)[np.newaxis],
-				self.fleet.idleness_map[np.newaxis],
-				self.model.predict()[np.newaxis],
-				), axis=0)
+				observations[vehicle_id] = np.concatenate((
+					self.navigation_map[np.newaxis],
+					(0.5*self.fleet.get_vehicle_position_map(observer=vehicle_id) + 0.5*self.fleet.vehicles[vehicle_id].influence_mask)[np.newaxis],
+					self.fleet.get_fleet_position_map(observers=vehicle_id)[np.newaxis],
+					self.fleet.idleness_map[np.newaxis],
+					self.model.predict()[np.newaxis],
+					), axis=0)
 
 		self.observations = observations
 
@@ -556,16 +571,16 @@ class DiscreteModelBasedPatrolling:
 			self.axs = self.axs.flatten()
 
 			# Plot the navigation map #
-			self.d0 = self.axs[0].imshow(self.observations[list(self.fleet.vehicles_ids)[0]][0], cmap='coolwarm', vmin=0, vmax=1)
+			self.d0 = self.axs[0].imshow(self.observations[list(self.fleet.vehicles_ids)[0]][0], cmap='coolwarm', vmin=0, vmax=1 if not self.int_observation else 255)
 			#self.d0 = self.axs[0].imshow(self.ground_truth.read(), cmap='gray', vmin=0, vmax=1)
 			self.axs[0].set_title('Navigation map')
-			self.d1 = self.axs[1].imshow(self.observations[list(self.fleet.vehicles_ids)[0]][1], cmap='coolwarm', vmin=0, vmax=1)
+			self.d1 = self.axs[1].imshow(self.observations[list(self.fleet.vehicles_ids)[0]][1], cmap='coolwarm', vmin=0, vmax=1 if not self.int_observation else 255)
 			self.axs[1].set_title('Agent Position')
-			self.d2 = self.axs[2].imshow(self.observations[list(self.fleet.vehicles_ids)[0]][2], cmap='coolwarm', vmin=0, vmax=1)
+			self.d2 = self.axs[2].imshow(self.observations[list(self.fleet.vehicles_ids)[0]][2], cmap='coolwarm', vmin=0, vmax=1 if not self.int_observation else 255)
 			self.axs[2].set_title('Fleet Position')
-			self.d3 = self.axs[3].imshow(self.observations[list(self.fleet.vehicles_ids)[0]][3], cmap='coolwarm', vmin=0, vmax=1)
+			self.d3 = self.axs[3].imshow(self.observations[list(self.fleet.vehicles_ids)[0]][3], cmap='coolwarm', vmin=0, vmax=1 if not self.int_observation else 255)
 			self.axs[3].set_title('Model')
-			self.d4 = self.axs[4].imshow(self.observations[list(self.fleet.vehicles_ids)[0]][4], cmap='coolwarm', vmin=0, vmax=1)
+			self.d4 = self.axs[4].imshow(self.observations[list(self.fleet.vehicles_ids)[0]][4], cmap='coolwarm', vmin=0, vmax=1 if not self.int_observation else 255)
 			self.axs[4].set_title('idleness')
 			self.d5 = self.axs[5].imshow(self.ground_truth.read(), cmap='coolwarm', vmin=0, vmax=1)
 			plt.colorbar(self.d0, ax=self.axs[0])
@@ -617,6 +632,7 @@ if __name__ == "__main__":
 								reward_type='local_changes',
 								model='vaeUnet',
 								seed=50000,
+								int_observation=True,
 								)
 
 	for m in range(10):

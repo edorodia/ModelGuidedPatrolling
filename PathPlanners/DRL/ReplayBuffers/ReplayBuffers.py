@@ -7,10 +7,10 @@ import random
 class ReplayBuffer:
 	"""A simple numpy replay buffer."""
 
-	def __init__(self, obs_dim: Union[tuple, int, list], size: int, batch_size: int = 32, n_step: int = 1, gamma: float = 0.99):
+	def __init__(self, obs_dim: Union[tuple, int, list], size: int, batch_size: int = 32, n_step: int = 1, gamma: float = 0.99, obs_dtype=np.float32):
 
-		self.obs_buf = np.zeros([size] + list(obs_dim), dtype=np.float32)
-		self.next_obs_buf = np.zeros([size] + list(obs_dim), dtype=np.float32)
+		self.obs_buf = np.zeros([size] + list(obs_dim), dtype=obs_dtype)
+		self.next_obs_buf = np.zeros([size] + list(obs_dim), dtype=obs_dtype)
 		self.acts_buf = np.zeros([size], dtype=np.float32)
 		self.rews_buf = np.zeros([size], dtype=np.float32)
 		self.done_buf = np.zeros(size, dtype=np.float32)

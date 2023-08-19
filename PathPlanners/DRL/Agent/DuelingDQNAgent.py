@@ -1,5 +1,4 @@
 from typing import Dict, List, Tuple
-import gym
 import numpy as np
 import torch
 import torch.optim as optim
@@ -10,6 +9,8 @@ import torch.nn.functional as F
 from tqdm import trange
 from PathPlanners.DRL.ActionMasking.ActionMaskingUtils import NoGoBackMasking, SafeActionMasking, ConsensusSafeActionMasking
 import time
+from datetime import datetime
+import psutil
 import json
 import os
 
@@ -17,7 +18,7 @@ class MultiAgentDuelingDQNAgent:
 
 	def __init__(
 			self,
-			env: gym.Env,
+			env,
 			memory_size: int,
 			batch_size: int,
 			target_update: int,
@@ -107,7 +108,7 @@ class MultiAgentDuelingDQNAgent:
 		""" Prioritized Experience Replay """
 		self.beta = beta
 		self.prior_eps = prior_eps
-		self.memory = PrioritizedReplayBuffer(obs_dim, memory_size, batch_size, alpha=alpha)
+		self.memory = PrioritizedReplayBuffer(obs_dim, memory_size, batch_size, alpha=alpha, obs_dtype=np.uint8 if env.int_observation else np.float32)
 
 		""" Create the DQN and the DQN-Target (noisy if selected) """
 		if self.noisy:
@@ -160,6 +161,10 @@ class MultiAgentDuelingDQNAgent:
 			selected_action = self.env.action_space.sample()
 
 		else:
+
+			if self.env.int_observation:
+				state = state.astype(np.float32) / 255.0
+
 			q_values = self.dqn(torch.FloatTensor(state).unsqueeze(0).to(self.device)).detach().cpu().numpy()
 			selected_action = np.argmax(q_values)
 
@@ -193,6 +198,9 @@ class MultiAgentDuelingDQNAgent:
 
 			else:
 				# Compute the q_values using the Policy but with censor #
+				if self.env.int_observation:
+					state = state.astype(np.float32) / 255.0
+
 				q_values = self.dqn(torch.FloatTensor(state).unsqueeze(0).to(self.device)).detach().cpu().numpy()
 				q_values, _ = self.safe_masking_module.mask_action(q_values = q_values.flatten())
 				q_values, _ = self.nogoback_masking_modules[agent_id].mask_action(q_values = q_values)
@@ -377,7 +385,6 @@ class MultiAgentDuelingDQNAgent:
 					if steps % self.train_every == 0:
 
 						loss = self.update_model()
-						# Append loss #
 						losses.append(loss)
 
 					# Update target soft/hard #
@@ -417,6 +424,11 @@ class MultiAgentDuelingDQNAgent:
 
 		"""Return dqn loss."""
 		device = self.device  # for shortening the following lines
+
+		if self.env.int_observation:
+				state = state.astype(np.float32) / 255.0
+				next_state = next_state.astype(np.float32) / 255.0
+				
 		state = torch.FloatTensor(samples["obs"]).to(device)
 		next_state = torch.FloatTensor(samples["next_obs"]).to(device)
 		action = torch.LongTensor(samples["acts"]).to(device)

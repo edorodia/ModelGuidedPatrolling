@@ -7,10 +7,10 @@ import random
 class ReplayBuffer:
 	"""A simple numpy replay buffer."""
 
-	def __init__(self, obs_dim: Union[tuple, int, list], size: int, batch_size: int = 32, n_step: int = 1, gamma: float = 0.99):
+	def __init__(self, obs_dim: Union[tuple, int, list], size: int, batch_size: int = 32, n_step: int = 1, gamma: float = 0.99, obs_dtype=np.float32):
 
-		self.obs_buf = np.zeros([size] + list(obs_dim), dtype=np.float32)
-		self.next_obs_buf = np.zeros([size] + list(obs_dim), dtype=np.float32)
+		self.obs_buf = np.zeros([size] + list(obs_dim), dtype=obs_dtype)
+		self.next_obs_buf = np.zeros([size] + list(obs_dim), dtype=obs_dtype)
 		self.acts_buf = np.zeros([size], dtype=np.float32)
 		self.rews_buf = np.zeros([size], dtype=np.float32)
 		self.done_buf = np.zeros(size, dtype=np.float32)
@@ -103,11 +103,11 @@ class PrioritizedReplayBuffer(ReplayBuffer):
 
 	"""
 
-	def __init__(self, obs_dim: Union[tuple, int, list], size: int, batch_size: int = 32, alpha: float = 0.6, n_step: int = 1, gamma: float = 0.99):
+	def __init__(self, obs_dim: Union[tuple, int, list], size: int, batch_size: int = 32, alpha: float = 0.6, n_step: int = 1, gamma: float = 0.99, obs_dtype=np.float32):
 		"""Initialization."""
 		assert alpha >= 0
 
-		super(PrioritizedReplayBuffer, self).__init__(obs_dim, size, batch_size, n_step, gamma)
+		super(PrioritizedReplayBuffer, self).__init__(obs_dim, size, batch_size, n_step, gamma, obs_dtype)
 
 		self.max_priority, self.tree_ptr = 1.0, 0
 		self.alpha = alpha

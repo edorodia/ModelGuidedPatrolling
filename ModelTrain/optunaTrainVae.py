@@ -147,6 +147,8 @@ def objective(trial):
 
 			# Get the batch
 
+			test_loss = 0  # Test loss to 0
+
 			for i, data_test in enumerate(dataloader_test):
 
 				# Get the batch
@@ -160,9 +162,11 @@ def objective(trial):
 				output = model.forward_with_prior(batch)
 				# Compute the loss
 				error_mask_tiled = torch.tile(error_mask, (len(batch_gt),1,1)).unsqueeze(1)
-				test_loss = F.mse_loss(output[torch.where(error_mask_tiled == 1)], batch_gt[torch.where(error_mask_tiled == 1)])
+				test_loss += F.mse_loss(output[torch.where(error_mask_tiled == 1)], batch_gt[torch.where(error_mask_tiled == 1)], reduction='sum').item()
 
 				# Add the loss to the running loss
+
+			test_loss /= len(dataset_test)
 
 		# Save the model if the loss is lower than the previous one
 		if epoch == 0:
@@ -202,7 +206,7 @@ def objective(trial):
 
 
 if __name__ == "__main__":
-	study = optuna.create_study(direction="maximize")
+	study = optuna.create_study(direction="minimize")
 	study.optimize(objective, n_trials=30, timeout=600)
 
 	pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])

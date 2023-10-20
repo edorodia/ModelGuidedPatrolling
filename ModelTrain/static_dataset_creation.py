@@ -153,9 +153,9 @@ if __name__ == "__main__":
 
 	# Save the trajectories 
 
-	file_name = 'ModelTrain/Data/mmtrajectories_' + benchmark + '_' + dataset + '.npy'
+	file_name = 'ModelTrain/Data/trajectories_' + benchmark + '_' + dataset + '.npy'
 	np.save(file_name, observations)
-	file_name = 'ModelTrain/Data/mmgts_' + benchmark + '_' + dataset + '.npy'
+	file_name = 'ModelTrain/Data/gts_' + benchmark + '_' + dataset + '.npy'
 	np.save(file_name, gts)
 
 

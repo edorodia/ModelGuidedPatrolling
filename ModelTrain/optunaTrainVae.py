@@ -114,8 +114,8 @@ def objective(trial):
 
 			# Transform the batch to a float Tensor for the model
 			with torch.no_grad():
-				batch = torch.Tensor(batch).float().to(device)
-				batch_gt = torch.Tensor(batch_gt).float().to(device)
+				batch = torch.Tensor(batch).float().to(device) / 255.0
+				batch_gt = torch.Tensor(batch_gt).float().to(device) / 255.0
 				batch_gt = batch_gt.unsqueeze(1)
 
 			# Forward pass
@@ -152,8 +152,8 @@ def objective(trial):
 				# Get the batch
 				batch, batch_gt = data_test
 				# Transform the batch to a float Tensor for the model
-				batch = torch.Tensor(batch).float().to(device)
-				batch_gt = torch.Tensor(batch_gt).float().to(device)
+				batch = torch.Tensor(batch).float().to(device) / 255.0
+				batch_gt = torch.Tensor(batch_gt).float().to(device) / 255.0
 				batch_gt = batch_gt.unsqueeze(1)
 
 				# Forward pass

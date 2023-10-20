@@ -120,6 +120,10 @@ def generate_trajectory(seed):
 
 	# print("Hi! I'm process {} and I'm done!".format(seed))
 
+	# Transform into uint8
+	observation_trajectory = (255*observation_trajectory).astype(np.uint8)
+	ground_truth = (255*ground_truth).astype(np.uint8)
+
 	return observation_trajectory, ground_truth
 
 

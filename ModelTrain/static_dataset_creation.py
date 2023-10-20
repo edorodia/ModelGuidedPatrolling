@@ -27,7 +27,7 @@ argparser = argparse.ArgumentParser()
 argparser.add_argument('--n_agents', type=int, default=4)
 argparser.add_argument('--frameskip', type=int, default=1)
 argparser.add_argument('--max_frames', type=int, default=100)
-argparser.add_argument('--N_episodes', type=int, default=100)
+argparser.add_argument('--N_episodes', type=int, default=3)
 argparser.add_argument('--parallel', type=bool, default=False)
 argparser.add_argument('--benchmark', type=str, default='algae_bloom', choices=['algae_bloom', 'shekel'])
 argparser.add_argument('--set', type=str, default='test', choices=['train', 'test'])
@@ -93,7 +93,7 @@ def generate_trajectory(seed):
 
 	frame_number = np.random.choice(np.arange(0, max_frames), size = max_frames//frameskip, replace=False)
 	
-	while not all(done.values()):
+	while t < max_frames + 1:
 
 		actions = {i: agent[i].move(env.fleet.vehicles[i].position.astype(int)) for i in done.keys() if not done[i]}
 		_,_,done,_ = env.step(actions)
@@ -101,11 +101,11 @@ def generate_trajectory(seed):
 		# Get the ground truth
 
 		if t in frame_number and args.random:
-			W_list.append((env.fleet.visited_map.copy() * 255).astype(np.uint8))
-			model_list.append((env.model.predict().copy() * 255).astype(np.uint8))
+			W_list.append(env.fleet.visited_map.copy() * 255)
+			model_list.append(env.model.predict().copy() * 255)
 		elif t % frameskip == 0 and not args.random:
-			W_list.append((env.fleet.visited_map.copy()  * 255).astype(np.uint8))
-			model_list.append((env.model.predict().copy() * 255).astype(np.uint8))
+			W_list.append(env.fleet.visited_map.copy()  * 255)
+			model_list.append(env.model.predict().copy() * 255)
 
 
 		t += 1
@@ -113,8 +113,8 @@ def generate_trajectory(seed):
 		if t >= max_frames + 1:
 			break
 
-	W_list = np.asarray(W_list)
-	model_list = np.asarray(model_list)
+	W_list = np.asarray(W_list, dtype=np.uint8)
+	model_list = np.asarray(model_list, dtype=np.uint8)
 
 	observation_trajectory = np.stack((W_list, model_list), axis=1)
 
@@ -153,9 +153,9 @@ if __name__ == "__main__":
 
 	# Save the trajectories 
 
-	file_name = 'ModelTrain/Data/trajectories_' + benchmark + '_' + dataset + '.npy'
+	file_name = 'ModelTrain/Data/mmtrajectories_' + benchmark + '_' + dataset + '.npy'
 	np.save(file_name, observations)
-	file_name = 'ModelTrain/Data/gts_' + benchmark + '_' + dataset + '.npy'
+	file_name = 'ModelTrain/Data/mmgts_' + benchmark + '_' + dataset + '.npy'
 	np.save(file_name, gts)
 
 

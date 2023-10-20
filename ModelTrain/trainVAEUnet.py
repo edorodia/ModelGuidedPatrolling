@@ -19,7 +19,7 @@ argparser = argparse.ArgumentParser()
 argparser.add_argument('--benchmark', type=str, default='algae_bloom', choices=['algae_bloom', 'shekel'])
 argparser.add_argument('--epochs', type=int, default=30)
 argparser.add_argument('--batch_size', type=int, default=64)
-argparser.add_argument('--lr', type=float, default=1e-3)
+argparser.add_argument('--lr', type=float, default=1e-4)
 argparser.add_argument('--weight_decay', type=float, default=0)
 argparser.add_argument('--device', type=str, default='cuda:0', choices=['cuda:0', 'cuda:1', 'cpu']) 
 argparser.add_argument('--scale', type=int, default=2) 
@@ -28,10 +28,10 @@ argparser.add_argument('--scale', type=int, default=2)
 args = argparser.parse_args()
 
 benchmark = args.benchmark
-train_traj_file_name = 'ModelTrain/Data/trajectories_' + benchmark + '_train_other.npy'
-train_gt_file_name = 'ModelTrain/Data/gts_' + benchmark + '_train_other.npy'
-test_traj_file_name = 'ModelTrain/Data/trajectories_' + benchmark + '_test_other.npy'
-test_gt_file_name = 'ModelTrain/Data/gts_' + benchmark + '_test_other.npy'
+train_traj_file_name = 'ModelTrain/Data/trajectories_' + benchmark + '_train.npy'
+train_gt_file_name = 'ModelTrain/Data/gts_' + benchmark + '_train.npy'
+test_traj_file_name = 'ModelTrain/Data/trajectories_' + benchmark + '_test.npy'
+test_gt_file_name = 'ModelTrain/Data/gts_' + benchmark + '_test.npy'
 
 # Create the dataset
 dataset = StaticDataset(path_trajectories = train_traj_file_name, 
@@ -75,7 +75,18 @@ dir_path = 'runs/TrainingUnet/VAEUnet_{}_{}'.format(benchmark, time.strftime("%Y
 os.system('rm -rf ' + dir_path)
 writer = tb.SummaryWriter(log_dir=dir_path, comment='VAEUnet_training_{}'.format(benchmark))
 
-mask_tensor = th.Tensor(mask).float().to(device)
+
+def beta_scheduler(t, beta_min = 0.001, beta_max=1.0, t_beta_min=0.0, t_beta_max=0.2):
+
+	if t < t_beta_min:
+		return beta_min
+	elif t_beta_min > t > t_beta_max:
+		return beta_min + (beta_max - beta_min) * (t - t_beta_min) / (t_beta_max - t_beta_min)
+	else:
+		return beta_max
+
+error_mask = np.genfromtxt('Environment\Maps\map.txt', delimiter=' ')
+error_mask = th.Tensor(error_mask).to(device)
 
 
 for epoch in tqdm(range(N_epochs), desc="Epochs: "):
@@ -101,7 +112,14 @@ for epoch in tqdm(range(N_epochs), desc="Epochs: "):
 		output, prior, posterior = model(batch, batch_gt)
 
 		# Compute the loss
-		loss, recon_loss, kl_loss, perceptual_loss = model.compute_loss(x = batch[:,1,:,:], x_true = batch_gt, x_out = output, prior = prior, posterior = posterior, beta = 0.01, alpha=0.5)
+		loss, recon_loss, kl_loss, perceptual_loss = model.compute_loss(x = batch[:,1,:,:], 
+													x_true = batch_gt, 
+													x_out = output, 
+													prior = prior, 
+													posterior = posterior, 
+													beta = beta_scheduler(epoch/N_epochs), 
+													alpha=1, 
+													error_mask=error_mask)
 
 		# Add the loss to the running loss
 		running_loss.append(loss.item())
@@ -137,7 +155,8 @@ for epoch in tqdm(range(N_epochs), desc="Epochs: "):
 			# Forward pass
 			output = model.forward_with_prior(batch)
 			# Compute the loss
-			test_loss = F.mse_loss(output, batch_gt)
+			error_mask_tiled = th.tile(error_mask, (len(batch_gt),1,1)).unsqueeze(1)
+			test_loss = F.mse_loss(output[th.where(error_mask_tiled == 1)], batch_gt[th.where(error_mask_tiled == 1)])
 
 			# Add the loss to the running loss
 

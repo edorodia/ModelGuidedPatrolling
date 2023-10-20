@@ -2,6 +2,7 @@ import sys
 sys.path.append('.')
 import math
 from scipy.signal import convolve2d
+from scipy.ndimage import gaussian_filter, convolve
 import numpy as np
 import matplotlib.pyplot as plt
 import time
@@ -9,17 +10,21 @@ import time
 
 class WildFiresSimulator:
 
-	def __init__(self, scenario_map: np.ndarray, seed: int = 0, max_init_fires: int = 2, initial_time = 80) -> None:
+	def __init__(self, scenario_map: np.ndarray, seed: int = 0, max_init_fires: int = 2, initial_time = 80, fuel_map: np.ndarray = None) -> None:
 		
 		
 		self.scenario_map = scenario_map
 		self.valid_cells = np.column_stack(np.where(scenario_map == 1))
-		self.max_distance = 2
-		self.ignition_factor = 0.01
+		self.max_distance = 5
+		self.fuel_decay = 0.05
+		self.ignition_factor = 0.0005
 		self.temperature_map = np.zeros_like(scenario_map)
-		self.initial_fuel_map = np.full_like(scenario_map, 10)
+		self.initial_fuel_map = np.full_like(scenario_map, 10) if fuel_map is None else fuel_map
+
+		self.initial_fuel_map[self.initial_fuel_map < 0.5] = 0.0
+
 		self.extinguished_map = np.zeros_like(scenario_map)
-		self.ignite_map = np.ones_like(scenario_map)
+		self.ignite_map = scenario_map.copy()
 		self.wind_angle = None
 		self.wind_speed = None
 		self.max_init_fires = max_init_fires
@@ -32,6 +37,8 @@ class WildFiresSimulator:
 								[7, 26, 41, 26, 7],
 								[4, 16, 26, 16, 4],
 								[1, 4, 7, 4, 1]]) / 273
+
+		
 		
 	
 
@@ -42,7 +49,8 @@ class WildFiresSimulator:
 	def init_fire(self):
 		
 
-		cells = self.valid_cells[np.random.randint(0, len(self.valid_cells), np.random.randint(1, self.max_init_fires+1))]
+		#cells = self.valid_cells[np.random.randint(0, len(self.valid_cells), np.random.randint(1, self.max_init_fires+1))]
+		cells = np.asarray([[83, 193]])
 		# Start the fire
 		self.burning_map[cells[:,0], cells[:,1]] = 1
 
@@ -77,7 +85,7 @@ class WildFiresSimulator:
 		#Get every position surrounding and update tge 
 		for cell in burning_cells:
 
-			if self.fuel_map[cell[0],cell[1]] == 0:
+			if self.fuel_map[cell[0],cell[1]] <= 0:
 				self.burning_map[cell[0],cell[1]] = 0
 				self.ignite_map[cell[0],cell[1]] = 1
 				self.extinguished_map[cell[0],cell[1]] = 1
@@ -96,14 +104,18 @@ class WildFiresSimulator:
 			distances = distances[close_condition]
 			dxdy = dxdy[close_condition]            
 			wind_factor = np.sum(dxdy * self.wind, axis=1)
+
+			p_fuel = self.fuel_map[surrounding_cells[:, 0], surrounding_cells[:, 1]]
+
+
 			
-			new_p = np.clip(self.ignition_factor * (1 + wind_factor)/distances**2, 0, 1)
+			new_p = np.clip(1/(p_fuel+1) * self.ignition_factor * (1 + wind_factor)/distances**2, 0, 1) 
 			# Update the ignition map
 			self.ignite_map[surrounding_cells[:, 0], surrounding_cells[:, 1]] *= (1.0 - new_p)
 
 		
 			# Update the fuel map
-			self.fuel_map[cell[0],cell[1]] -= 1
+			self.fuel_map[cell[0],cell[1]] -= self.fuel_decay
 
 			# Update the extinguished map
 			self.extinguished_map[cell[0],cell[1]] = 1
@@ -112,13 +124,13 @@ class WildFiresSimulator:
 		new_burning_cells = np.column_stack(np.where(np.random.rand(*self.scenario_map.shape) > self.ignite_map))
 		self.burning_map[new_burning_cells[:, 0], new_burning_cells[:, 1]] = 1
 
-		self.temperature_map = convolve2d(self.burning_map + self.extinguished_map * 0.25, self.kernel, mode='same')
+		self.temperature_map = gaussian_filter(self.burning_map + 0.25*self.extinguished_map, 0.8) * self.scenario_map
 
 	def set_wind(self) -> None:
 		
 		# Random wind angle and speed
 		self.wind_angle = np.random.uniform(0, 2 * np.pi)
-		self.wind_speed = np.random.uniform(0, 0.1)
+		self.wind_speed = np.random.uniform(0, 1.0)
 		self.wind = np.array([np.cos(self.wind_angle), np.sin(self.wind_angle)]) * self.wind_speed
 
 
@@ -132,14 +144,18 @@ class WildFiresSimulator:
 			self.ax.set_xlabel('X')
 			self.ax.set_ylabel('Y')
 
-			self.im = self.ax.imshow(self.temperature_map, cmap='hot', vmin=0, vmax=1, interpolation='nearest')
+			self.ax.imshow(self.scenario_map, cmap='gray_r', vmin=0, vmax=1, alpha=1 - self.scenario_map)
+			self.ax.imshow(self.initial_fuel_map, cmap='Greens', vmin=0, vmax=1, alpha=self.scenario_map)
+			self.im = self.ax.imshow(self.temperature_map , cmap='hot', vmin=0, vmax=1.5, interpolation='nearest', alpha =0.75, zorder=50) 
+			
+
 
 		else:
 			self.im.set_data(self.temperature_map)
 
 		self.fig.canvas.draw()
 		self.fig.canvas.flush_events()
-		plt.pause(0.01)
+		plt.pause(0.001)
 
 	def time_travel(self, steps: int) -> None:
 
@@ -162,14 +178,18 @@ if __name__ == '__main__':
 
 	import time
 
-	gt = WildFiresSimulator(np.ones((30,30)))
+	mapa = np.genfromtxt('Environment/Maps/mapa_tenerife_mask.txt')
+	mapa_ndvi = np.genfromtxt('Environment/Maps/mapa_tenerife_ndvi.txt')
+
+	gt = WildFiresSimulator(mapa, fuel_map=mapa_ndvi, initial_time=1)
 
 	gt.reset()
 
 	for _ in range(10):
 		t0 = time.time()
 		gt.reset()
-		print(time.time() - t0)
-		gt.render()
-		plt.show()
+
+		for t in range(1000):
+			gt.step()
+			gt.render()
 

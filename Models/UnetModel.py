@@ -13,7 +13,7 @@ benchmark_2_path = {'algae_bloom': 'runs/TrainingUnet/Unet_algae_bloom/Unet_alga
 #benchmark_2_vae_path = {'algae_bloom': 'runs/TrainingUnet/VAEUnet_algae_bloom/VAEUnet_algae_bloom_train.pth',
 #                    'shekel': 'runs/TrainingUnet/VAEUnet_shekel/VAEUnet_shekel_train.pth',}
 
-benchmark_2_vae_path = {'algae_bloom': 'runs\TrainingUnet\VAEUnet_algae_bloom\VAEUnet_algae_bloom_test.pth',
+benchmark_2_vae_path = {'algae_bloom': 'runs\TrainingUnet\VAEUnet_algae_bloom_20230822-174730\VAEUnet_algae_bloom_train.pth',
                     'shekel': 'runs/TrainingUnet/VAEUnet_shekel/VAEUnet_shekel_train.pth',}         
 
                     
@@ -40,6 +40,8 @@ class UnetDeepModel:
         # Update the miopic model
         self.pre_model.update(x, y)
 
+    
+
         # Use the miopic model to predict the map
         pre_model_map = self.pre_model.predict()
 
@@ -53,8 +55,10 @@ class UnetDeepModel:
             # Predict the model #
             output_tensor = self.model(input_tensor)
             # Get the numpy array
-            self.model_map = output_tensor.squeeze(0).squeeze(0).cpu().detach().numpy() * self.navigation_map
-
+            model_map = output_tensor.squeeze(0).squeeze(0).cpu().detach().numpy() * self.navigation_map
+            model_map[self.pre_model.X[:,0], self.pre_model.X[:,1]] = self.pre_model.Y
+            self.model_map = model_map
+            
     def predict(self):
 
         return self.model_map

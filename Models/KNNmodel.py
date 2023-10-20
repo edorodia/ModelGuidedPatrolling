@@ -16,7 +16,7 @@ class KNNmodel(BaseModel):
 		self.visitable_positions = np.array(np.where(self.navigation_map == 1)).T
 		# Store the positions that are not visitable
 		self.influence_radius = influence_radius
-		self.regressor = KNeighborsRegressor(n_neighbors=1, weights='distance', algorithm='auto', leaf_size=10, p=2, metric='minkowski', n_jobs=2)
+		self.regressor = RadiusNeighborsRegressor(radius=3, weights='distance', algorithm='auto', n_jobs=1)
 		#self.regressor = RadiusNeighborsRegressor(radius=self.influence_radius, weights='distance', algorithm='auto', leaf_size=30, p=2, metric='minkowski', n_jobs=2)
 		
 		self.model_map = np.zeros_like(self.navigation_map, dtype=np.float32)
@@ -52,6 +52,8 @@ class KNNmodel(BaseModel):
 		else:
 			self.regressor.fit(self.x, self.y)
 			y_pred = self.regressor.predict(self.visitable_positions)
+
+		y_pred = np.nan_to_num(y_pred, nan=0.0)
 
 		# Update the model map
 		self.model_map[self.visitable_positions[:, 0], self.visitable_positions[:, 1]] = np.nan_to_num(y_pred, nan=0.0)

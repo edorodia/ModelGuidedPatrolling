@@ -98,7 +98,8 @@ class algae_bloom:
 
         self.map[:,:] = 0.0
         
-        current_movement = self.current_field_fn(self.in_bound_particles)
+        # current_movement = self.current_field_fn(self.in_bound_particles)
+        current_movement = np.array([self.current_field(particle) for particle in self.in_bound_particles])
 
         self.in_bound_particles = self.apply_bounds_fn(self.in_bound_particles)
         self.in_bound_particles = self.in_bound_particles + self.dt * current_movement
@@ -142,19 +143,25 @@ class algae_bloom:
 if __name__ == '__main__':
 
     import matplotlib.pyplot as plt
+    import time
 
     gt = algae_bloom(np.genfromtxt('Environment/Maps/map.txt', delimiter=' '), dt=0.05)
 
     m = gt.reset()
-    gt.render()
+    #gt.render()
 
     for _ in range(50):
+        t0 = time.time()
         gt.reset()
-        gt.render()
-
+        #gt.render()
+        
         for t in range(100):
             m = gt.step()
-            gt.render()    
+
+        print(time.time() - t0)
+
+    
+        #gt.render()    
 
 
         

@@ -213,7 +213,7 @@ class VAEUnet(nn.Module):
         
         return means + noise
 
-    def forward(self, x_in, x_gt):
+    def forward(self, x_in, x_gt, N = 3):
         """ Forward the model using the posterior network"""
 
         # Downsampling
@@ -228,7 +228,7 @@ class VAEUnet(nn.Module):
         # Compute the latent space of the posterior for training
         posterior = self.encode_posterior(torch.cat([x_in, x_gt], dim=1))
         # Obtain the mean and the log variance of the latent space
-        z_posterior = self.sample(posterior[0], posterior[1])
+        
 
         # Upsampling
         x = self.up1(x5, x4)
@@ -236,7 +236,22 @@ class VAEUnet(nn.Module):
         x = self.up3(x, x2)
         x = self.up4(x, x1)
 
-        output = self.outc(x + z_posterior)
+        if N > 1:
+            # Sample N times the latent space and create a tensor
+            final_output = 0
+
+            for i in range(N):
+                # Sample the posterior
+                z_posterior = self.sample(posterior[0], posterior[1])
+                # Append the noise to the output and return the values of the last layer
+                final_output = final_output + self.outc(x + z_posterior)
+
+            output = torch.mean(final_output, dim=1).unsqueeze(1)
+
+
+        else:
+            z_posterior = self.sample(posterior[0], posterior[1])
+            output = self.outc(x + z_posterior)
 
         # Compute the latent space of the prior for training
         prior = self.encode_prior(x_in)
@@ -287,10 +302,14 @@ class VAEUnet(nn.Module):
 
         return mu_posterior, logvar_posterior
 
-    def compute_loss(self, x, x_true, x_out, prior, posterior, beta = 0.01, alpha = 0.1):
+    def compute_loss(self, x, x_true, x_out, prior, posterior, alpha = 1.0, beta = 0.01, gamma = 0.1, error_mask = None):
 
         # 1) Compute the reconstruction loss with the MSE
-        reconstruction_loss = F.mse_loss(x_out, x_true)
+        if error_mask is not None:
+            error_mask = torch.tile(error_mask, (len(x_out),1,1)).unsqueeze(1)
+            reconstruction_loss = F.mse_loss(x_out[error_mask == 1], x_true[error_mask == 1])
+        else:
+            reconstruction_loss = F.mse_loss(x_out, x_true)
 
         # 2) Compute the KL divergence between the prior and the posterior
         
@@ -310,7 +329,7 @@ class VAEUnet(nn.Module):
 
         # 3) Compute the total loss
 
-        loss = reconstruction_loss + beta * KL + alpha * feature_loss 
+        loss = alpha * reconstruction_loss + beta * KL + gamma * feature_loss 
 
         return loss, reconstruction_loss, KL, feature_loss
 
@@ -366,7 +385,7 @@ class VAEUnet(nn.Module):
             # Append the noise to the output and return the values of the last layer
             output[i,:,:] = self.outc(x + z_prior)
 
-        return output.mean(dim=0)
+        return output.mean(dim=0), output.std(dim=0)
 
 
 

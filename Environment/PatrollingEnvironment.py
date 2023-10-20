@@ -4,6 +4,7 @@ sys.path.append('.')
 import numpy as np
 import matplotlib.pyplot as plt
 from Environment.GroundTruths.AlgaeBloomGroundTruth import algae_bloom
+from Environment.GroundTruths.AlgaeBloomGroundTruth_numba import AlgaeBloomGroundTruthNumba
 from Environment.GroundTruths.ShekelGroundTruth import shekel
 from gym import spaces
 
@@ -34,6 +35,7 @@ class Vehicle:
 		self.total_max_distance = total_max_distance
 		self.distance = 0.0
 		self.waypoints = []
+		self.last_waypoints = []
 
 		self.influence_radius = influence_radius
 
@@ -49,6 +51,7 @@ class Vehicle:
 
 		# Reset the path
 		self.waypoints = [self.position]
+		self.last_waypoints = [self.position]
 
 		self.influence_mask = self._influence_mask()
 
@@ -77,46 +80,61 @@ class Vehicle:
 	def move(self, length, angle):
 		# Take a step in given direction #
 
-		direction = np.array([np.cos(angle), np.sin(angle)])
+		direction = np.array([np.cos(angle), np.sin(angle)]).round()
 
-		next_target_position = length * direction + self.position
+		self.last_waypoints = []
 
-		# Check if the next_targer_position is visitable #
+		number_of_minimoves = length 
+		minimove_length = 1
 
-		collision = self.collision(next_target_position)
+		original_position = self.position.copy()
+		next_target_position = self.position.copy()
 
-		if collision:
+		# Iterate for minimoves #
+		for minimove in range(1, number_of_minimoves + 1):
 
-			# Obtain the nearest visitable point in the direction of the movement #
+			# Check if the next_targer_position is visitable #
+			next_target_position =  original_position + minimove * minimove_length * direction
 
-			last_truncated_position = self.position.copy()
+			collision = self.collision(next_target_position)
 
-			for i in np.arange(0, length+1):
+			if collision:
 
-				new_truncated_position = self.position + i * direction
+				# Obtain the nearest visitable point in the direction of the movement #
+
+				last_truncated_position = self.position.copy()
+
+				# for i in np.arange(0, length+1):
+
+				# 	new_truncated_position = self.position + i * direction
+					
+				# 	if self.collision(new_truncated_position):
+				# 		self.position = last_truncated_position.copy()
+				# 		break
+				# 	else:
+				# 		last_truncated_position = new_truncated_position.copy()
+
+				self.waypoints.append(original_position + (minimove - 1 / number_of_minimoves) * direction)
+				self.last_waypoints.append(self.waypoints[-1])   
+				self.influence_mask = self._influence_mask()
+				self.position = self.waypoints[-1]
+				self.last_waypoints = np.asarray(self.last_waypoints)
+				return "COLLISION"
+
+			else:
 				
-				if self.collision(new_truncated_position):
-					self.position = last_truncated_position.copy()
-					break
-				else:
-					last_truncated_position = new_truncated_position.copy()
+				# Compute distance #
+				self.distance += np.linalg.norm(next_target_position - self.position)
+				
+				# Copy the next position #
+				self.position = next_target_position.copy()
+				self.waypoints.append(self.position)
+				self.last_waypoints.append(self.position)      
+				self.influence_mask = self._influence_mask()  
 
-			self.waypoints.append(self.position)        
-			self.influence_mask = self._influence_mask()
-
-			return "COLLISION"
-
-		else:
-			
-			# Compute distance #
-			self.distance += np.linalg.norm(next_target_position - self.position)
-			
-			# Copy the next position #
-			self.position = next_target_position.copy()
-			self.waypoints.append(self.position)      
-			self.influence_mask = self._influence_mask()  
-
-			return "OK"
+		self.last_waypoints = np.asarray(self.last_waypoints)
+		
+		return "OK"
 	
 	def collision(self, position):
 		# Check if the vehicle has collided #
@@ -166,11 +184,15 @@ class CoordinatedFleet:
 
 		# Reset the vehicles #
 		self.vehicles_ids = set(range(self.n_vehicles))
+		self.visited_map = np.zeros_like(self.navigation_map)
 		for vehicle in self.vehicles:
 			vehicle.reset()
+			self.visited_map[vehicle.position[0].astype(int), vehicle.position[1].astype(int)] = 1
 
 		self.idleness_map = np.ones_like(self.navigation_map)
 		self.idleness_map_ = np.ones_like(self.navigation_map)
+
+		
 
 	def move(self, movements):
 
@@ -187,6 +209,9 @@ class CoordinatedFleet:
 		# Move the vehicles #
 		for vehicle_id in self.vehicles_ids:
 			self.vehicles[vehicle_id].move(movements[vehicle_id]['length'], movements[vehicle_id]['angle'])
+
+			# Update the visited map #
+			self.visited_map[self.vehicles[vehicle_id].last_waypoints[:,0].astype(int), self.vehicles[vehicle_id].last_waypoints[:,1].astype(int)] = 1
 
 		self.update_idleness_map()
 
@@ -272,6 +297,10 @@ class CoordinatedFleet:
 		# Reset the idleness map in the vehicles influence area #
 		for vehicle_id in self.vehicles_ids:
 			self.idleness_map[np.where(self.vehicles[vehicle_id].influence_mask != 0)] = 0
+
+	def get_last_waypoints(self):
+		""" Return the last waypoints of the vehicles """
+		return np.vstack([vehicle.last_waypoints for vehicle in self.vehicles])
 	
 class DiscreteModelBasedPatrolling:
 
@@ -351,7 +380,7 @@ class DiscreteModelBasedPatrolling:
 		elif model == 'miopic':
 			self.model = MiopicModel(navigation_map=self.navigation_map, resolution=self.resolution, influence_radius=self.influence_radius, dt = 0.7)
 		elif model == 'rknn':
-			self.model = RKNNmodel(navigation_map=self.navigation_map, resolution=self.resolution, influence_radius=self.influence_radius*2, dt = 0.01)
+			self.model = RKNNmodel(navigation_map=self.navigation_map, resolution=self.resolution, influence_radius=self.influence_radius*3, dt = 0.01)
 		elif model == 'deepUnet':
 			self.model = UnetDeepModel(navigation_map=self.navigation_map, model_path = benchmark_2_path[benchmark], resolution=self.resolution, influence_radius=self.influence_radius, dt = 0.01)
 		elif model == 'vaeUnet':
@@ -373,6 +402,9 @@ class DiscreteModelBasedPatrolling:
 			self.ground_truth = shekel(self.navigation_map, max_number_of_peaks=6, seed = self.seed, dt=0.02)
 		elif benchmark == 'algae_bloom':
 			self.ground_truth = algae_bloom(self.navigation_map, dt=0.05, seed=self.seed)
+			#self.ground_truth = AlgaeBloomGroundTruthNumba(self.navigation_map, dt=0.05)
+		elif benchmark == 'algae_bloom_numba':
+			self.ground_truth = AlgaeBloomGroundTruthNumba(self.navigation_map, dt=0.05)
 		else:
 			raise ValueError('Unknown benchmark')
 
@@ -389,7 +421,6 @@ class DiscreteModelBasedPatrolling:
 	def get_positions_dict(self):
 		
 		return {agent_id: position for agent_id, position in zip(self.fleet.vehicles_ids, self.fleet.get_positions())}
-
 
 	def reset(self):
 
@@ -452,23 +483,22 @@ class DiscreteModelBasedPatrolling:
 		""" Update the model """
 
 		# Obtain all the new positions of the agents #
-		positions = self.fleet.get_positions()
+		# positions = self.fleet.get_positions()
+
+		sample_positions = self.fleet.get_last_waypoints()
 
 		# Obtain the values of the ground truth in the new positions #
-		values = self.ground_truth.read(positions)
+		values = self.ground_truth.read(sample_positions)
 
 		self.previous_model = self.model.predict().copy()
 
 		# Update the model #
 
 		if self.model_str == 'deepUnet' or self.model_str == 'vaeUnet':
-			self.model.update(positions, values, self.fleet.idleness_map)
+			self.model.update(sample_positions, values, self.fleet.idleness_map)
 		else:
-			self.model.update(positions, values)
+			self.model.update(sample_positions, values)
 
-		
-
-	
 	def get_observations(self):
 		""" Observation function. The observation is composed by:
 		 1) Navigation map with obstacles
@@ -490,7 +520,7 @@ class DiscreteModelBasedPatrolling:
 					(255 * self.navigation_map[np.newaxis]).astype(np.uint8),
 					(255 *(0.5*self.fleet.get_vehicle_position_map(observer=vehicle_id) + 0.5*self.fleet.vehicles[vehicle_id].influence_mask)[np.newaxis]).astype(np.uint8),
 					(255 * self.fleet.get_fleet_position_map(observers=vehicle_id)[np.newaxis]).astype(np.uint8),
-					(255 * self.fleet.idleness_map[np.newaxis]).astype(np.uint8),
+					(255 * self.fleet.visited_map[np.newaxis]).astype(np.uint8),
 					(255 * self.model.predict()[np.newaxis]).astype(np.uint8),
 					), axis=0)
 
@@ -500,7 +530,7 @@ class DiscreteModelBasedPatrolling:
 					self.navigation_map[np.newaxis],
 					(0.5*self.fleet.get_vehicle_position_map(observer=vehicle_id) + 0.5*self.fleet.vehicles[vehicle_id].influence_mask)[np.newaxis],
 					self.fleet.get_fleet_position_map(observers=vehicle_id)[np.newaxis],
-					self.fleet.idleness_map[np.newaxis],
+					self.fleet.visited_map[np.newaxis],
 					self.model.predict()[np.newaxis],
 					), axis=0)
 
@@ -571,18 +601,18 @@ class DiscreteModelBasedPatrolling:
 			self.axs = self.axs.flatten()
 
 			# Plot the navigation map #
-			self.d0 = self.axs[0].imshow(self.observations[list(self.fleet.vehicles_ids)[0]][0], cmap='coolwarm', vmin=0, vmax=1 if not self.int_observation else 255)
+			self.d0 = self.axs[0].imshow(self.observations[list(self.fleet.vehicles_ids)[0]][0], cmap='gray', vmin=0, vmax=1 if not self.int_observation else 255)
 			#self.d0 = self.axs[0].imshow(self.ground_truth.read(), cmap='gray', vmin=0, vmax=1)
 			self.axs[0].set_title('Navigation map')
-			self.d1 = self.axs[1].imshow(self.observations[list(self.fleet.vehicles_ids)[0]][1], cmap='coolwarm', vmin=0, vmax=1 if not self.int_observation else 255)
+			self.d1 = self.axs[1].imshow(self.observations[list(self.fleet.vehicles_ids)[0]][1], cmap='gray', vmin=0, vmax=1 if not self.int_observation else 255)
 			self.axs[1].set_title('Agent Position')
-			self.d2 = self.axs[2].imshow(self.observations[list(self.fleet.vehicles_ids)[0]][2], cmap='coolwarm', vmin=0, vmax=1 if not self.int_observation else 255)
+			self.d2 = self.axs[2].imshow(self.observations[list(self.fleet.vehicles_ids)[0]][2], cmap='gray', vmin=0, vmax=1 if not self.int_observation else 255)
 			self.axs[2].set_title('Fleet Position')
-			self.d3 = self.axs[3].imshow(self.observations[list(self.fleet.vehicles_ids)[0]][3], cmap='coolwarm', vmin=0, vmax=1 if not self.int_observation else 255)
-			self.axs[3].set_title('Model')
-			self.d4 = self.axs[4].imshow(self.observations[list(self.fleet.vehicles_ids)[0]][4], cmap='coolwarm', vmin=0, vmax=1 if not self.int_observation else 255)
-			self.axs[4].set_title('idleness')
-			self.d5 = self.axs[5].imshow(self.ground_truth.read(), cmap='coolwarm', vmin=0, vmax=1)
+			self.d3 = self.axs[3].imshow(self.observations[list(self.fleet.vehicles_ids)[0]][3], cmap='jet', vmin=0, vmax=1 if not self.int_observation else 255)
+			self.axs[3].set_title('Idleness')
+			self.d4 = self.axs[4].imshow(self.observations[list(self.fleet.vehicles_ids)[0]][4], cmap='jet', vmin=0, vmax=1 if not self.int_observation else 255)
+			self.axs[4].set_title('Model')
+			self.d5 = self.axs[5].imshow(self.ground_truth.read(), cmap='jet', vmin=0, vmax=1)
 			plt.colorbar(self.d0, ax=self.axs[0])
 
 		else:
@@ -607,6 +637,7 @@ if __name__ == "__main__":
 
 	from PathPlanners.LawnMower import LawnMowerAgent
 	from PathPlanners.NRRA import WanderingAgent
+	import time
 
 	scenario_map = np.genfromtxt('Environment\Maps\map.txt', delimiter=' ')
 
@@ -621,22 +652,23 @@ if __name__ == "__main__":
 								navigation_map=scenario_map,
 								initial_positions=initial_positions,
 								model_based=True,
-								movement_length=2,
+								movement_length=4,
 								resolution=1,
-								influence_radius=2,
+								influence_radius=0,
 								forgetting_factor=2,
-								max_distance=100,
+								max_distance=200,
 								benchmark='shekel',
-								dynamic=True,
+								dynamic=False,
 								reward_weights=[10, 10],
 								reward_type='local_changes',
-								model='vaeUnet',
+								model= 'miopic',
 								seed=50000,
 								int_observation=True,
 								)
 
 	for m in range(10):
 		
+		t0 = time.time()
 		env.reset()
 		done = {i: False for i in range(N)}
 
@@ -660,12 +692,14 @@ if __name__ == "__main__":
 			rewards_list.append([rewards[i] for i in range(N)])
 
 			env.render()
+			
 			print("Rewards: ", rewards)
 			print("Done: ", done)
 			print("Info: ", info)
-
+			plt.pause(0.2)
 			mse.append(np.mean(np.sqrt(info['mse'])))
 
+		print("Time: ", time.time() - t0)
 		
 		"""
 		plt.close()

@@ -20,14 +20,18 @@ parser.add_argument('--w_reward_weight', type=float, default=10.0, help='The rew
 parser.add_argument('--i_reward_weight', type=float, default=10.0, help='The reward weights of the agents.')
 parser.add_argument('--model', type=str, default='miopic', choices=['miopic', 'vaeUnet'], help='The model to use.')
 parser.add_argument('--device', type=int, default=0, help='The device to use.', choices=[-1, 0, 1])
+parser.add_argument('--dynamic', type=bool, default=False, help='Simulate dynamic')
 
 # Compose a name for the experiment
 args = parser.parse_args()
 
 reward_weights = [args.w_reward_weight, args.i_reward_weight]
 
-experiment_name = f'Experiment_benchmark_{args.benchmark}_reward_weights_W_{reward_weights[0]}_I_{reward_weights[1]}_model_{args.model}_{time.strftime("%Y%m%d-%H%M%S")}'
-
+if not args.dynamic:
+	experiment_name = f'Experiment_benchmark_{args.benchmark}_reward_weights_W_{reward_weights[0]}_I_{reward_weights[1]}_model_{args.model}_{time.strftime("%Y%m%d-%H%M%S")}'
+else:
+	print('Dynamic benchmark!')
+	experiment_name = f'Experiment_benchmark_{args.benchmark}_reward_weights_W_{reward_weights[0]}_I_{reward_weights[1]}_model_{args.model}_dynamic_{time.strftime("%Y%m%d-%H%M%S")}'
 
 navigation_map = np.genfromtxt('Environment/Maps/map.txt', delimiter=' ')
 
@@ -51,11 +55,12 @@ env = DiscreteModelBasedPatrolling(n_agents=N,
 								forgetting_factor=args.forgetting_factor,
 								max_distance=args.max_distance,
 								benchmark=args.benchmark,
-								dynamic=False,
+								dynamic=args.dynamic,
 								reward_weights=reward_weights,
 								reward_type='local_changes',
 								model='miopic',
-								seed=args.seed,)
+								seed=args.seed,
+								int_observation=True)
 
 multiagent = MultiAgentDuelingDQNAgent(env=env,
 									memory_size=int(1E5),

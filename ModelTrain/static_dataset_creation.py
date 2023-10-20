@@ -101,11 +101,11 @@ def generate_trajectory(seed):
 		# Get the ground truth
 
 		if t in frame_number and args.random:
-			W_list.append(env.fleet.visited_map.copy())
-			model_list.append(env.model.predict().copy())
+			W_list.append((env.fleet.visited_map.copy() * 255).astype(np.uint8))
+			model_list.append((env.model.predict().copy() * 255).astype(np.uint8))
 		elif t % frameskip == 0 and not args.random:
-			W_list.append(env.fleet.visited_map.copy())
-			model_list.append(env.model.predict().copy())
+			W_list.append((env.fleet.visited_map.copy()  * 255).astype(np.uint8))
+			model_list.append((env.model.predict().copy() * 255).astype(np.uint8))
 
 
 		t += 1
@@ -119,10 +119,6 @@ def generate_trajectory(seed):
 	observation_trajectory = np.stack((W_list, model_list), axis=1)
 
 	# print("Hi! I'm process {} and I'm done!".format(seed))
-
-	# Transform into uint8
-	observation_trajectory = (255*observation_trajectory).astype(np.uint8)
-	ground_truth = (255*ground_truth).astype(np.uint8)
 
 	return observation_trajectory, ground_truth
 

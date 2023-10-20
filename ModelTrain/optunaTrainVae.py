@@ -20,7 +20,7 @@ import torch.utils.data
 from torchvision import datasets
 from torchvision import transforms
 from argparse import ArgumentParser
-
+from tqdm import tqdm
 from ModelTrain.dataset import StaticDataset
 from Models.unet import VAEUnet
 import torch
@@ -103,7 +103,7 @@ def objective(trial):
 
 	optimizer = torch.optim.Adam(model.parameters(), lr = lr)
 
-	for epoch in range(N_epochs):
+	for epoch in tqdm(range(N_epochs)):
 
 		model.train()
 

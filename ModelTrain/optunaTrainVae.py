@@ -63,7 +63,7 @@ BATCHSIZE = 64
 dataloader = DataLoader(dataset, batch_size = BATCHSIZE, shuffle = True, num_workers = 0, )
 dataloader_test = DataLoader(dataset_test, batch_size = BATCHSIZE, shuffle = True, num_workers = 0)
 # Obtain the mask
-error_mask = np.genfromtxt('Environment\Maps\map.txt', delimiter=' ')
+error_mask = np.genfromtxt('Environment/Maps/map.txt', delimiter=' ')
 device = torch.device("cuda:{}".format(args.cuda) if torch.cuda.is_available() else "cpu")
 error_mask = torch.Tensor(error_mask).to(device)
 

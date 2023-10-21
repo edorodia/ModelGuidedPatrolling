@@ -307,9 +307,9 @@ class VAEUnet(nn.Module):
         # 1) Compute the reconstruction loss with the MSE
         if error_mask is not None:
             error_mask = torch.tile(error_mask, (len(x_out),1,1)).unsqueeze(1)
-            reconstruction_loss = F.mse_loss(x_out[error_mask == 1], x_true[error_mask == 1])
+            reconstruction_loss = F.l1_loss(x_out[error_mask == 1], x_true[error_mask == 1])
         else:
-            reconstruction_loss = F.mse_loss(x_out, x_true)
+            reconstruction_loss = F.l1_loss(x_out, x_true)
 
         # 2) Compute the KL divergence between the prior and the posterior
         

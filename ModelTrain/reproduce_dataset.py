@@ -8,14 +8,15 @@ from torchvision.transforms import GaussianBlur
 
 # Load the dataset
 
-trajectories = np.load(r'ModelTrain\Data\trajectories_algae_bloom_train.npy')
-gts = np.load(r'ModelTrain/Data/gts_algae_bloom_train.npy')
+trajectories = np.load(r'ModelTrain\Data\trajectories_algae_bloom_test.npy')
+gts = np.load(r'ModelTrain/Data/gts_algae_bloom_test.npy')
 
 plt.ion()
 
 fig, ax = plt.subplots(1, 3, figsize = (10, 10))
 
 d0 = ax[0].imshow(trajectories[0,0,0,:,:], vmin=0, vmax=1)
+
 d1 = ax[1].imshow(trajectories[0,0,0,:,:], vmin=0, vmax=1)
 d2 = ax[2].imshow(gts[0], vmin=0, vmax=1)
 
@@ -34,9 +35,9 @@ for t in range(len(trajectories)):
 
     for i in range(trajectories.shape[1]):
 
-        d0.set_data(trajectories[t,i,0,:,:])
-        d1.set_data(trajectories[t,i,1,:,:])
-        d2.set_data(gts[t])
+        d0.set_data(trajectories[t,i,0,:,:]/255)
+        d1.set_data(trajectories[t,i,1,:,:]/255)
+        d2.set_data(gts[t]/255)
         fig.canvas.draw()
         plt.pause(0.1)
 

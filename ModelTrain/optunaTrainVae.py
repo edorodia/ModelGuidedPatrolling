@@ -162,7 +162,7 @@ def objective(trial):
 				output = model.forward_with_prior(batch)
 				# Compute the loss
 				error_mask_tiled = torch.tile(error_mask, (len(batch_gt),1,1)).unsqueeze(1)
-				test_loss += F.l1_loss(output[torch.where(error_mask_tiled == 1)], batch_gt[torch.where(error_mask_tiled == 1)], reduction='mean').item()
+				test_loss += F.mse_loss(output[torch.where(error_mask_tiled == 1)], batch_gt[torch.where(error_mask_tiled == 1)], reduction='sum').item()
 
 				# Add the loss to the running loss
 

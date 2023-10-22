@@ -14,7 +14,7 @@ import argparse
 
 parser = argparse.ArgumentParser(description='Test the model')
 
-parser.add_argument('--benchmark', type=str, default='algae_bloom', choices=['shekel', 'algae_bloom'])
+parser.add_argument('--benchmark', type=str, default='shekel', choices=['shekel', 'algae_bloom'])
 args = parser.parse_args()
 
 mask = np.genfromtxt('Environment/Maps/map.txt', delimiter=' ')
@@ -34,10 +34,10 @@ model = VAEUnet(input_shape=input_shape, n_channels_in=2, n_channels_out=1, bili
 if args.benchmark == 'shekel':
 	model_path = 'runs/TrainingUnet/VAEUnet_shekel/VAEUnet_shekel_train.pth'
 elif args.benchmark == 'algae_bloom':
-	model_path = r'runs\TrainingUnet\VAEUnet_algae_bloom_20231019-103929\VAEUnet_algae_bloom_train.pth'
+	model_path = r'runs\optuna\algae_bloom\VAEUnet_algae_bloom_test_trial_num_1.pth'
 
 
-model.load_state_dict(th.load(model_path))
+model.load_state_dict(th.load(model_path, map_location=device))
 
 # Test the model
 model.eval()
@@ -60,18 +60,23 @@ axs[3].set_title('Real')
 axs[4].set_title('STD')
 
 
+navigation_map = np.genfromtxt('Environment/Maps/map.txt', delimiter=' ')
+
 for i in range(len(dataset)):
 
-	data_test = th.Tensor(dataset[i][0]).float().unsqueeze(0).to(device)
+	data_test = th.Tensor(dataset[i][0]).float().unsqueeze(0).to(device)/255.0
 	# output = model.forward_with_prior(data_test)
 
 
-	output = model.imagine(N=10, x=data_test)
+	output = model.imagine(N=1, x=data_test)
 	input_data = data_test[0,1,:,:].detach().cpu().numpy()
 	input_data2 = data_test[0,0,:,:].detach().cpu().numpy()
-	real_data = dataset[i][1] * mask
+	real_data = dataset[i][1] * mask / 255
 
 	mean = output[0].cpu().squeeze(0).detach().numpy()
+
+	#mean = (mean - np.min(mean)) / (np.max(mean) - np.min(mean))
+
 	std = output[1].cpu().squeeze(0).detach().numpy()
 	std = (std - np.min(std)) / (np.max(std) - np.min(std))
 
@@ -82,6 +87,7 @@ for i in range(len(dataset)):
 	d4.set_data(std)
 
 
+	print("ERROR: ", np.sum(np.abs(mean - real_data))/np.sum(navigation_map))
 
 
 	# Colorbar of the difference

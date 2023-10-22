@@ -19,7 +19,7 @@ argparser = argparse.ArgumentParser()
 argparser.add_argument('--benchmark', type=str, default='algae_bloom', choices=['algae_bloom', 'shekel'])
 argparser.add_argument('--epochs', type=int, default=30)
 argparser.add_argument('--batch_size', type=int, default=64)
-argparser.add_argument('--lr', type=float, default=1e-4)
+argparser.add_argument('--lr', type=float, default=7e-4)
 argparser.add_argument('--weight_decay', type=float, default=0)
 argparser.add_argument('--device', type=str, default='cuda:0', choices=['cuda:0', 'cuda:1', 'cpu']) 
 argparser.add_argument('--scale', type=int, default=2) 
@@ -30,8 +30,8 @@ args = argparser.parse_args()
 benchmark = args.benchmark
 train_traj_file_name = 'ModelTrain/Data/trajectories_' + benchmark + '_train.npy'
 train_gt_file_name = 'ModelTrain/Data/gts_' + benchmark + '_train.npy'
-test_traj_file_name = 'ModelTrain/Data/trajectories_' + benchmark + '_test.npy'
-test_gt_file_name = 'ModelTrain/Data/gts_' + benchmark + '_test.npy'
+test_traj_file_name = 'ModelTrain/Data/trajectories_' + benchmark + '_train.npy'
+test_gt_file_name = 'ModelTrain/Data/gts_' + benchmark + '_train.npy'
 
 # Create the dataset
 dataset = StaticDataset(path_trajectories = train_traj_file_name, 
@@ -104,8 +104,8 @@ for epoch in tqdm(range(N_epochs), desc="Epochs: "):
 
 		# Transform the batch to a float Tensor for the model
 		with th.no_grad():
-			batch = th.Tensor(batch).float().to(device)
-			batch_gt = th.Tensor(batch_gt).float().to(device)
+			batch = th.Tensor(batch).float().to(device) / 255.0
+			batch_gt = th.Tensor(batch_gt).float().to(device) / 255.0
 			batch_gt = batch_gt.unsqueeze(1)
 
 		# Forward pass
@@ -117,8 +117,9 @@ for epoch in tqdm(range(N_epochs), desc="Epochs: "):
 													x_out = output, 
 													prior = prior, 
 													posterior = posterior, 
-													beta = beta_scheduler(epoch/N_epochs), 
-													alpha=1, 
+													beta = 4.565*beta_scheduler(epoch/N_epochs), 
+													alpha=6.68,
+													gamma=7.72,
 													error_mask=error_mask)
 
 		# Add the loss to the running loss
@@ -143,22 +144,26 @@ for epoch in tqdm(range(N_epochs), desc="Epochs: "):
 
 		# Get the batch
 
+		test_loss = 0
+
 		for i, data_test in enumerate(dataloader_test):
 
 			# Get the batch
 			batch, batch_gt = data_test
 			# Transform the batch to a float Tensor for the model
-			batch = th.Tensor(batch).float().to(device)
-			batch_gt = th.Tensor(batch_gt).float().to(device)
+			batch = th.Tensor(batch).float().to(device) / 255.0
+			batch_gt = th.Tensor(batch_gt).float().to(device)  / 255.0
 			batch_gt = batch_gt.unsqueeze(1)
 
 			# Forward pass
 			output = model.forward_with_prior(batch)
 			# Compute the loss
 			error_mask_tiled = th.tile(error_mask, (len(batch_gt),1,1)).unsqueeze(1)
-			test_loss = F.mse_loss(output[th.where(error_mask_tiled == 1)], batch_gt[th.where(error_mask_tiled == 1)])
+			test_loss += F.mse_loss(output[error_mask_tiled == 1], batch_gt[error_mask_tiled == 1]).item()
 
+		test_loss = test_loss / len(dataloader_test)
 			# Add the loss to the running loss
+		
 
 	# Save the model if the loss is lower than the previous one
 	if epoch == 0:

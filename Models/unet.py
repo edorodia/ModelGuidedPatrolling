@@ -213,7 +213,7 @@ class VAEUnet(nn.Module):
         
         return means + noise
 
-    def forward(self, x_in, x_gt, N = 3):
+    def forward(self, x_in, x_gt, N = 1):
         """ Forward the model using the posterior network"""
 
         # Downsampling
@@ -246,7 +246,8 @@ class VAEUnet(nn.Module):
                 # Append the noise to the output and return the values of the last layer
                 final_output = final_output + self.outc(x + z_posterior)
 
-            output = torch.mean(final_output, dim=1).unsqueeze(1)
+            # Compute the mean of the N samples
+            output = final_output / N
 
 
         else:
@@ -307,7 +308,7 @@ class VAEUnet(nn.Module):
         # 1) Compute the reconstruction loss with the MSE
         if error_mask is not None:
             error_mask = torch.tile(error_mask, (len(x_out),1,1)).unsqueeze(1)
-            reconstruction_loss = F.mse_loss(x_out[error_mask == 1], x_true[error_mask == 1])
+            reconstruction_loss = F.mse_loss(x_out[error_mask == 1], x_true[error_mask == 1]) 
         else:
             reconstruction_loss = F.mse_loss(x_out, x_true)
 

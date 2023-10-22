@@ -196,7 +196,7 @@ def objective(trial):
 
 
 		# Print the loss
-		trial.report(test_loss, epoch)
+		trial.report(min_loss, epoch)
 
 		# Handle pruning based on the intermediate value.
 		if trial.should_prune():

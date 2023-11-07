@@ -13,7 +13,7 @@ class GaussianProcessModel:
 		self.visitable_positions = np.array(np.where(self.navigation_map == 1)).T
 		# Store the positions that are not visitable
 		self.influence_radius = influence_radius
-		self.kernel = C(1.0, (1e-3, 1e3)) * RBF(1.0, (0.1, 1e23))
+		self.kernel = C(1.0, (1e-3, 1e3)) * RBF(1.0, (0.1, 1e2))
 		self.regressor = GaussianProcessRegressor(kernel=self.kernel, alpha=0.001, n_restarts_optimizer=0)
 		
 		self.model_map = np.zeros_like(self.navigation_map, dtype=np.float32)

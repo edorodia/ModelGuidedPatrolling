@@ -13,10 +13,8 @@ from PathPlanners.NRRA import WanderingAgent
 
 seed = 50000
 dynamic = True
-all_models = ['knn', 'miopic', 'gp', 'deepUnet', 'vaeUnet']
-# all_models = ['vaeUnet']
-all_benchmarks = ['algae_bloom', 'shekel']
-all_benchmarks = [ 'shekel']
+all_models = ['knn', 'miopic', 'gp', 'vaeUnet']
+all_benchmarks = ['algae_bloom']#, 'shekel']
 
 if dynamic:
 	output_path = 'Evaluation/EvaluateModels/Results/results_all_dynamic.csv'
@@ -29,10 +27,10 @@ parser.add_argument('--model', type=str, default='all', help='Model to evaluate'
 parser.add_argument('--benchmark', type=str, default='all', help='Benchmark to evaluate', choices = ['all', 'algae_bloom', 'shekel'])
 parser.add_argument('--runs', type=int, default=50, help='Number of runs')
 parser.add_argument('--N', type=int, default=4, help='Number of agents')
-parser.add_argument('--max_frames', type=int, default=100, help='Maximum number of frames')
+parser.add_argument('--max_frames', type=int, default=200, help='Maximum number of frames')
 parser.add_argument('--render', type=bool, default=False, help='Render mode')
 parser.add_argument('--save_maps', type=bool, default=False, help='Save maps')
-parser.add_argument('--append', type=bool, default=True, help='Append to the csv file')
+parser.add_argument('--append', type=bool, default=False, help='Append to the csv file')
 
 args = parser.parse_args()
 
@@ -66,7 +64,7 @@ for benchmark in tqdm(benchmarks, desc='Benchmark: ', total=len(benchmarks), lea
 								   resolution=1,
 								   influence_radius=1.5 if benchmark == 'algae_bloom' else 2,
 								   forgetting_factor=2,
-								   max_distance=200,
+								   max_distance=300 if dynamic else 200,
 								   benchmark=benchmark,
 								   dynamic=dynamic,
 								   reward_weights=[10.0, 100.0],
@@ -107,8 +105,14 @@ for benchmark in tqdm(benchmarks, desc='Benchmark: ', total=len(benchmarks), lea
 
 				if args.save_maps and step % 10 == 0:
 					model_map.append(env.model.predict().copy())
+
+				fleet_positions = env.fleet.get_positions()
+
+				if len(fleet_positions) < 4:
+					break
 				
 				positions.append(env.fleet.get_positions().copy())
+
 
 			all_positions.append(np.array(positions).copy())
 			all_models.append(np.array(model_map).copy())

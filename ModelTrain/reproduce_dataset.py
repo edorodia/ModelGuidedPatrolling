@@ -6,19 +6,33 @@ from torch.nn.functional import max_pool2d, avg_pool2d
 from torch.nn import Upsample, UpsamplingNearest2d, UpsamplingBilinear2d
 from torchvision.transforms import GaussianBlur
 
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+import cmasher as cmr
+
 # Load the dataset
 
 trajectories = np.load(r'ModelTrain\Data\trajectories_algae_bloom_test.npy')
 gts = np.load(r'ModelTrain/Data/gts_algae_bloom_test.npy')
+background = np.genfromtxt(r'Environment\Maps\map.txt')
 
 plt.ion()
 
+cmap = cmr.get_sub_cmap('cmr.toxic', 0.30, 0.99)
+
 fig, ax = plt.subplots(1, 3, figsize = (10, 10))
 
-d0 = ax[0].imshow(trajectories[0,0,0,:,:], vmin=0, vmax=1)
+ax[0].imshow(background, vmin=0, vmax=1, cmap = 'copper_r', alpha = 1 - background, zorder=10)
+d0 = ax[0].imshow(trajectories[0,0,0,:,:], vmin=0, vmax=1, cmap = 'gray')
+ax[1].imshow(background, vmin=0, vmax=1, cmap = 'copper_r', alpha = 1 - background, zorder=10)
+d1 = ax[1].imshow(trajectories[0,0,0,:,:], vmin=0, vmax=1, cmap = cmap)
+ax[2].imshow(background, vmin=0, vmax=1, cmap = 'copper_r', alpha = 1 - background, zorder=10)
 
-d1 = ax[1].imshow(trajectories[0,0,0,:,:], vmin=0, vmax=1)
-d2 = ax[2].imshow(gts[0], vmin=0, vmax=1)
+d2 = ax[2].imshow(gts[0], vmin=0, vmax=1,  cmap = cmap)
+
+# Colorbar
+divider = make_axes_locatable(ax[2])
+cax = divider.append_axes("right", size="5%", pad=0.05)
+plt.colorbar(d2, cax=cax)
 
 plt.show()
 

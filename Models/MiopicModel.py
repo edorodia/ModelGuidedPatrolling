@@ -48,7 +48,7 @@ class MiopicModel(BaseModel):
 				# Set the positions to y
 				self.model_map[positions[:,0], positions[:,1]] = y[i]
 		
-		self.model_map[np.round(self.x[:,0]).astype(int), np.round(self.x[:,1]).astype(int)] = self.y
+		self.model_map[self.x[:,0].astype(int), self.x[:,1].astype(int)] = self.y
 		
 
 			

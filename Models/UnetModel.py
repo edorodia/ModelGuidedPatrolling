@@ -72,11 +72,7 @@ class VAEUnetDeepModel(UnetDeepModel):
 		self.pre_model = MiopicModel(navigation_map, influence_radius, resolution, dt)
 		# Create the models
 		self.model = VAEUnet(input_shape=navigation_map.shape, n_channels_in=2, n_channels_out=1, bilinear=False, scale=2).to(device)
-		
-		try:
-			self.model = torch.compile(self.model)
-		except RuntimeError:
-			print('Cannot compile in Windows')
+	
 		
 		self.model.eval()
 		# Import the model

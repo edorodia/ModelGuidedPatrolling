@@ -12,8 +12,6 @@ from Models.UnetModel import UnetDeepModel, VAEUnetDeepModel, benchmark_2_vae_pa
 from sklearn.metrics import mean_squared_error, r2_score
 from PathPlanners.dijkstra import Dijkstra
 
-plt.switch_backend('TkAgg')
-
 
 class Vehicle:
 	

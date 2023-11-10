@@ -8,6 +8,7 @@ from tqdm import tqdm
 from scipy.interpolate import interp1d
 import os
 
+plt.switch_backend('TkAgg')
 
 def positions_to_action(pos_1, pos_2):
 	angle = np.arctan2(pos_2[1] - pos_1[1], pos_2[0] - pos_1[0])
@@ -100,18 +101,17 @@ def main():
 					
 					# Render the environment
 					# env.render()
-					
 					# plt.pause(0.5)
 					
 					t += 1
 					
-					dataframe.append([run, t, case, total_reward, info['mse'], info['mae'], info['r2'],
+					dataframe.append([run, t, case, total_reward, info['true_reward'], info['mse'], info['mae'], info['r2'],
 					                  info['total_average_distance'], info['mean_idleness'],
 					                  info['mean_weighted_idleness'],
 					                  info['coverage_percentage'], info['normalization_value'], 'VRP', benchmark])
 	
 	df = pd.DataFrame(dataframe,
-	                  columns=['run', 'step', 'case', 'total_reward', 'mse', 'mae', 'r2', 'total_average_distance',
+	                  columns=['run', 'step', 'case', 'total_reward', 'total_true_reward', 'mse', 'mae', 'r2', 'total_average_distance',
 	                           'mean_idleness', 'mean_weighted_idleness', 'coverage_percentage',
 	                           'normalization_value', 'Algorithm', 'Benchmark'])
 	

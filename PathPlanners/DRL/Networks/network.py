@@ -169,7 +169,7 @@ class RecurrentDuelingVisualNetwork(nn.Module):
 
 		return q
 
-	def forward_with_hidden(x: torch.Tensor, hidden: torch.Tensor = None) -> torch.Tensor:
+	def forward_with_hidden(self, x: torch.Tensor, hidden: torch.Tensor = None) -> torch.Tensor:
 		"""Forward one observation. """
 		feature = self.feature_layer(x)
 
@@ -204,9 +204,9 @@ class NoisyDuelingVisualNetwork(nn.Module):
 		self.feature_layer = nn.Sequential(
 			FeatureExtractor(in_dim, number_of_features))
 
-		self.common_layer_1 = NoisyLinear(number_of_features, 256)
-		self.common_layer_2 = NoisyLinear(256, 256)
-		self.common_layer_3 = NoisyLinear(256, 256)
+		self.common_layer_1 = nn.Linear(number_of_features, 256)
+		self.common_layer_2 = nn.Linear(256, 256)
+		self.common_layer_3 = nn.Linear(256, 256)
 
 		# set advantage layer
 		self.advantage_hidden_layer = NoisyLinear(256, 64)
@@ -234,10 +234,6 @@ class NoisyDuelingVisualNetwork(nn.Module):
 		return q
 
 	def reset_noise(self):
-
-		self.common_layer_1.reset_noise()
-		self.common_layer_2.reset_noise()
-		self.common_layer_3.reset_noise()
 
 		self.advantage_hidden_layer.reset_noise()
 		self.advantage_layer.reset_noise()

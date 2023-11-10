@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 import os
 import seaborn as sns
 
+plt.switch_backend('TkAgg')
+
 # Read ALL CSVS in folder
 path = 'Evaluation/Patrolling/Results'
 
@@ -27,6 +29,6 @@ df = df[df['case'] != 'dynamic']
 sns.set_style("darkgrid")
 
 
-sns.lineplot(data=df, x='step', y='mean_weighted_idleness', hue = 'Algorithm', style='Benchmark')
+sns.lineplot(data=df, x='step', y='total_reward', hue = 'Algorithm', style='Benchmark')
 
 plt.show()

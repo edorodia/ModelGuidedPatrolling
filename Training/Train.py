@@ -19,7 +19,7 @@ parser.add_argument('--movement_length', type=int, default=2, help='The movement
 parser.add_argument('--resolution', type=int, default=1, help='The resolution of the environment.')
 parser.add_argument('--influence_radius', type=int, default=2, help='The influence radius of the agents.')
 parser.add_argument('--forgetting_factor', type=int, default=0.5, help='The forgetting factor of the agents.')
-parser.add_argument('--max_distance', type=int, default=400, help='The maximum distance of the agents.')
+parser.add_argument('--max_distance', type=int, default=200, help='The maximum distance of the agents.')
 parser.add_argument('--model', type=str, default='vaeUnet', choices=['miopic', 'vaeUnet'], help='The model to use.')
 parser.add_argument('--device', type=int, default=0, help='The device to use.', choices=[-1, 0, 1])
 parser.add_argument('--dynamic', type=bool, default=False, help='Simulate dynamic')
@@ -27,8 +27,7 @@ parser.add_argument('--dynamic', type=bool, default=False, help='Simulate dynami
 # Compose a name for the experiment
 args = parser.parse_args()
 
-if not args.dynamic:
-	experiment_name = f'Experiment_benchmark_{args.benchmark}_' + 'dynamic' if args.dynamic else 'static' + f'_model_{args.model}_{time.strftime("%Y%m%d-%H%M%S")}'
+experiment_name = f'Experiment_benchmark_{args.benchmark}__model_{args.model}_{time.strftime("%Y%m%d-%H%M%S")}'
 
 navigation_map = np.genfromtxt('Environment/Maps/map.txt', delimiter=' ')
 
@@ -61,24 +60,24 @@ env = DiscreteModelBasedPatrolling(n_agents=N,
 
 multiagent = MultiAgentDuelingDQNAgent(env=env,
                                        memory_size=int(1E6),
-                                       batch_size=64,
-                                       target_update=1000,
-                                       soft_update=True,
+                                       batch_size=128,
+                                       target_update=500,
+                                       soft_update=False,
                                        tau=0.001,
                                        epsilon_values=[1.0, 0.05],
                                        epsilon_interval=[0.0, 0.5],
                                        learning_starts=100,
                                        gamma=0.99,
-                                       lr=1e-4,
+                                       lr=3e-4,
                                        noisy=False,
-                                       train_every=50,
+                                       train_every=15,
                                        save_every=1000,
                                        distributional=False,
                                        masked_actions=True,
                                        device=device,
                                        logdir=f'runs/DRL/{experiment_name}',
                                        eval_episodes=10,
-                                       store_only_random_agent = True,
+                                       store_only_random_agent=False,
                                        eval_every=1000)
 
-multiagent.train(episodes=10000)
+multiagent.train(episodes=20000)

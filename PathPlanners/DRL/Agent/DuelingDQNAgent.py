@@ -552,7 +552,7 @@ class MultiAgentDuelingDQNAgent:
 		
 		torch.save(self.dqn.state_dict(), self.writer.log_dir + '/' + name)
 	
-	def evaluate_env(self, eval_episodes, render=False):
+	def evaluate_env(self, eval_episodes, render=False, verbose=False):
 		""" Evaluate the agent on the environment for a given number of episodes with a deterministic policy """
 		
 		self.dqn.eval()
@@ -581,7 +581,7 @@ class MultiAgentDuelingDQNAgent:
 					actions = self.select_action(state, deterministic=True)
 				else:
 					positions_dict = self.env.get_positions_dict()
-					actions = self.select_masked_action(states=state, positions=positions_dict)
+					actions = self.select_masked_action(states=state, positions=positions_dict, deterministic=True)
 				
 				actions = {agent_id: action for agent_id, action in actions.items() if not done[agent_id]}
 				
@@ -591,6 +591,9 @@ class MultiAgentDuelingDQNAgent:
 				if render:
 					self.env.render()
 					time.sleep(0.25)
+					
+				if verbose:
+					print(reward)
 				
 				# Update the state #
 				state = next_state

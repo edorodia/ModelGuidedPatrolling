@@ -378,6 +378,8 @@ class MultiAgentDuelingDQNAgent:
 						                   next_state[agent_id],
 						                   done[agent_id],
 						                   {}]
+						
+						self.memory.store(*self.transition)
 					
 					
 				

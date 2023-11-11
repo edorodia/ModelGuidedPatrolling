@@ -19,7 +19,7 @@ parser.add_argument('--movement_length', type=int, default=2, help='The movement
 parser.add_argument('--resolution', type=int, default=1, help='The resolution of the environment.')
 parser.add_argument('--influence_radius', type=int, default=2, help='The influence radius of the agents.')
 parser.add_argument('--forgetting_factor', type=int, default=0.5, help='The forgetting factor of the agents.')
-parser.add_argument('--max_distance', type=int, default=200, help='The maximum distance of the agents.')
+parser.add_argument('--max_distance', type=int, default=400, help='The maximum distance of the agents.')
 parser.add_argument('--model', type=str, default='vaeUnet', choices=['miopic', 'vaeUnet'], help='The model to use.')
 parser.add_argument('--device', type=int, default=0, help='The device to use.', choices=[-1, 0, 1])
 parser.add_argument('--dynamic', type=bool, default=False, help='Simulate dynamic')
@@ -68,7 +68,7 @@ multiagent = MultiAgentDuelingDQNAgent(env=env,
                                        epsilon_interval=[0.0, 0.5],
                                        learning_starts=100,
                                        gamma=0.99,
-                                       lr=3e-4,
+                                       lr=1e-4,
                                        noisy=False,
                                        train_every=5,
                                        save_every=1000,

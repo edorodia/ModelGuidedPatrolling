@@ -15,8 +15,6 @@ from PathPlanners.dijkstra import Dijkstra
 
 from Environment.exploration_policies import preComputedExplorationPolicy
 
-plt.switch_backend('TKAgg')
-
 class Vehicle:
 	
 	def __init__(self,

@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib
 from Environment.GroundTruths.AlgaeBloomGroundTruth import algae_bloom
 from Environment.GroundTruths.ShekelGroundTruth import shekel
 from gym import spaces
@@ -12,6 +13,9 @@ from Models.UnetModel import UnetDeepModel, VAEUnetDeepModel, benchmark_2_vae_pa
 from sklearn.metrics import mean_squared_error, r2_score
 from PathPlanners.dijkstra import Dijkstra
 
+from Environment.exploration_policies import preComputedExplorationPolicy
+
+plt.switch_backend('TKAgg')
 
 class Vehicle:
 	
@@ -351,6 +355,9 @@ class DiscreteModelBasedPatrolling:
 	             random_gt: bool = True,
 	             int_observation: bool = False,
 	             min_information_importance: float = 1.0,
+	             previous_exploration=False,
+	             pre_exploration_policy=None,
+	             pre_exploration_steps=0,
 	             ):
 		
 		""" Copy attributes """
@@ -386,6 +393,14 @@ class DiscreteModelBasedPatrolling:
 		self.max_num_steps = (forgetting_factor * self.max_distance) // self.move_length
 		
 		self.max_agent_steps = self.max_distance // self.move_length + 1
+		
+		""" Pre exploration Parameters """
+		self.previous_exploration = previous_exploration
+		self.pre_exploration_policy = pre_exploration_policy
+		self.pre_exploration_steps = pre_exploration_steps
+		
+		if self.previous_exploration:
+			self.initial_positions = self.pre_exploration_policy.initial_positions
 		
 		""" Create the fleet """
 		self.fleet = CoordinatedFleet(n_vehicles=self.n_agents,
@@ -451,6 +466,8 @@ class DiscreteModelBasedPatrolling:
 			raise ValueError('Unknown benchmark')
 		
 		self.ground_truth.reset()
+		
+		
 	
 	def get_positions(self):
 		
@@ -481,6 +498,13 @@ class DiscreteModelBasedPatrolling:
 		self.true_reward = {}
 		
 		self.steps = 0
+		
+		if self.previous_exploration:
+			""" If a pre-exploration policy is given, execute it """
+			self.pre_exploration_policy.reset()
+			for steps in range(self.pre_exploration_steps):
+				actions = self.pre_exploration_policy.suggest_action()
+				self.step(actions, action_type='next_position')
 		
 		return self.get_observations()
 	
@@ -724,7 +748,11 @@ if __name__ == "__main__":
 		                                   reward_type='weighted_idleness',
 		                                   model='vaeUnet',
 		                                   seed=50000,
-		                                   int_observation=True)
+		                                   int_observation=True,
+		                                   previous_exploration=True,
+		                                   pre_exploration_steps=50,
+		                                   pre_exploration_policy=preComputedExplorationPolicy("PathPlanners/VRP/vrp_paths.pkl", n_agents=N),
+		                                   )
 		
 		env.eval = True
 		

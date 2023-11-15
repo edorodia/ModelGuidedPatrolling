@@ -6,6 +6,7 @@ import numpy as np
 from Models.unet import UNet, VAEUnet
 from Models.MiopicModel import MiopicModel
 
+
 benchmark_2_vae_path = {'algae_bloom': r'runs/optuna/algae_bloom/VAEUnet_algae_bloom_test_trial_num_12.pth',
                         'shekel':      r'runs/optuna/shekel/VAEUnet_shekel_test_trial_num_18.pth'}
 

@@ -228,12 +228,12 @@ class MultiAgentDuelingDQNAgent:
 		
 		return actions
 	
-	def step(self, action: dict) -> Tuple[np.ndarray, np.float64, bool]:
+	def step(self, action: dict) -> Tuple[np.ndarray, np.float64, bool, dict]:
 		"""Take an action and return the response of the env."""
 		
-		next_state, reward, done, _ = self.env.step(action)
+		next_state, reward, done, info = self.env.step(action)
 		
-		return next_state, reward, done
+		return next_state, reward, done, info
 	
 	def update_model(self) -> torch.Tensor:
 		"""Update the model by gradient descent."""
@@ -350,7 +350,7 @@ class MultiAgentDuelingDQNAgent:
 				actions = {agent_id: action for agent_id, action in actions.items() if not done[agent_id]}
 				
 				# Process the agent step #
-				next_state, reward, done = self.step(actions)
+				next_state, reward, done, _ = self.step(actions)
 				
 				
 				# Select random agent to store the transition #

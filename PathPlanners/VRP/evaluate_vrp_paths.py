@@ -27,7 +27,7 @@ def main():
 	RUNS = 100
 	
 	# Load the paths from pickle
-	with open('PathPlanners/VRP/vrp_paths.pkl', 'rb') as handle:
+	with open('PathPlanners/VRP/vrp_paths_solution.pkl', 'rb') as handle:
 		paths = pickle.load(handle)
 	
 	# Create the environment map
@@ -37,16 +37,16 @@ def main():
 	# Take the initial_positions from the paths
 	initial_positions = np.asarray([paths[0][0], paths[1][0], paths[2][0], paths[3][0]])
 	
-	for i in range(N):
-		x = np.arange(len(paths[i]))
-		f = interp1d(x, paths[i], axis=0)
-		xnew = np.arange(0, len(paths[i]) - 1, 0.5)
-		paths[i] = f(xnew)
-	
-	
-	# Remove the last element of the paths
-	for i in range(N):
-		paths[i] = paths[i][:-1]
+	# for i in range(N):
+	# 	x = np.arange(len(paths[i]))
+	# 	f = interp1d(x, paths[i], axis=0)
+	# 	xnew = np.arange(0, len(paths[i]) - 1, 0.5)
+	# 	paths[i] = f(xnew)
+	#
+	#
+	# # Remove the last element of the paths
+	# for i in range(N):
+	# 	paths[i] = paths[i][:-1]
 	
 	dataframe = []
 	
@@ -76,6 +76,7 @@ def main():
 			                                   model='vaeUnet',
 			                                   seed=50000,
 			                                   int_observation=True,
+			                                   previous_exploration=False
 			                                   )
 			
 			env.eval = True
@@ -100,8 +101,8 @@ def main():
 					total_reward += np.sum(list(reward.values()))
 					
 					# Render the environment
-					# env.render()
-					# plt.pause(0.5)
+					env.render()
+					plt.pause(0.5)
 					
 					t += 1
 					

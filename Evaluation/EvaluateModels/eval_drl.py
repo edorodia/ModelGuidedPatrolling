@@ -5,8 +5,12 @@ import numpy as np
 from Environment.PatrollingEnvironment import DiscreteModelBasedPatrolling
 from PathPlanners.DRL.Agent.DuelingDQNAgent import MultiAgentDuelingDQNAgent
 from tqdm import tqdm
+import pandas as pd
 
 plt.switch_backend('TkAgg')
+
+render = False
+
 
 def main():
 	RUNS = 100
@@ -20,26 +24,23 @@ def main():
 	                              [43, 44],
 	                              [35, 45]])
 	
-	
-	
 	env = DiscreteModelBasedPatrolling(n_agents=N,
-                                   navigation_map=scenario_map,
-                                   initial_positions=initial_positions,
-                                   model_based=True,
-                                   movement_length=2,
-                                   resolution=1,
-                                   influence_radius=2,
-                                   forgetting_factor=0.5,
-                                   max_distance=600,
-                                   benchmark='algae_bloom',
-                                   dynamic=False,
-                                   reward_weights=[10, 10],
-                                   reward_type='weighted_idleness',
-                                   model='vaeUnet',
-                                   seed=500,
-                                   int_observation=True,
-                                   )
-
+	                                   navigation_map=scenario_map,
+	                                   initial_positions=initial_positions,
+	                                   model_based=True,
+	                                   movement_length=2,
+	                                   resolution=1,
+	                                   influence_radius=2,
+	                                   forgetting_factor=0.5,
+	                                   max_distance=600,
+	                                   benchmark='algae_bloom',
+	                                   dynamic=False,
+	                                   reward_weights=[10, 10],
+	                                   reward_type='weighted_idleness',
+	                                   model='vaeUnet',
+	                                   seed=50000,
+	                                   int_observation=True,
+	                                   )
 	
 	multiagent = MultiAgentDuelingDQNAgent(env=env,
 	                                       memory_size=int(1E3),
@@ -63,17 +64,106 @@ def main():
 	                                       store_only_random_agent=True,
 	                                       eval_every=1000)
 	
-	multiagent.load_model('runs/DRL/algae_bloom/BestPolicy.pth')
-	
 	multiagent.dqn.eval()
+	
+	dataframe = []
+	
+	for reward_weight in ['i_1_w_0_1', 'i_1_w_1']:
+		
+		print('Reward weight: ', reward_weight)
+		
+		for case in ['dynamic', 'static']:
+			print('Case: ', case)
 			
-	env.eval = True
+			for benchmark in ['algae_bloom', 'shekel']:
+				print('Benchmark: ', benchmark)
+				
+				if benchmark == 'shekel' and case == 'dynamic':
+					continue
+				
+				env = DiscreteModelBasedPatrolling(n_agents=N,
+				                                   navigation_map=scenario_map,
+				                                   initial_positions=initial_positions,
+				                                   model_based=True,
+				                                   movement_length=2,
+				                                   resolution=1,
+				                                   influence_radius=2,
+				                                   forgetting_factor=0.5,
+				                                   max_distance=600,
+				                                   benchmark=benchmark,
+				                                   dynamic=False,
+				                                   reward_weights=[10, 10],
+				                                   reward_type='weighted_idleness',
+				                                   model='vaeUnet',
+				                                   seed=50000,
+				                                   int_observation=True,
+				                                   )
+				env.eval = True
+				
+				multiagent.env = env
+				
+				multiagent.load_model('runs/DRL/' + benchmark + '/' + reward_weight + '/' + 'FinalPolicy.pth')
+				
+				for run in tqdm(range(RUNS)):
+					
+					done = {agent_id: False for agent_id in range(multiagent.env.number_of_agents)}
+					
+					for module in multiagent.nogoback_masking_modules.values():
+						module.reset()
+					
+					state = multiagent.env.reset()
+					
+					total_reward = 0
+					t = 0
+					
+					while not all(done.values()):
+						
+						positions_dict = multiagent.env.get_positions_dict()
+						actions = multiagent.select_masked_action(states=state, positions=positions_dict,
+						                                          deterministic=True)
+						
+						actions = {agent_id: action for agent_id, action in actions.items() if not done[agent_id]}
+						
+						# Process the agent step #
+						next_state, reward, done, info = multiagent.step(actions)
+						
+						if render:
+							multiagent.env.render()
+						
+						# Update the state #
+						state = next_state
+						
+						total_reward += np.sum(list(reward.values()))
+						
+						t += 1
+						
+						dataframe.append(
+								[run, t, case, total_reward, info['true_reward'], info['mse'], info['mae'], info['r2'],
+								 info['total_average_distance'], info['mean_idleness'],
+								 info['mean_weighted_idleness'],
+								 info['coverage_percentage'], info['normalization_value'], 'DRL_' + reward_weight, benchmark])
 	
-	multiagent.env.reset()
-	multiagent.env.reset()
-	multiagent.env.reset()
+	df = pd.DataFrame(dataframe,
+	                  columns=['run', 'step', 'case', 'total_reward', 'total_true_reward', 'mse', 'mae', 'r2',
+	                           'total_average_distance',
+	                           'mean_idleness', 'mean_weighted_idleness', 'coverage_percentage',
+	                           'normalization_value', 'Algorithm', 'Benchmark'])
 	
-	multiagent.evaluate_env(100, render=True, verbose=True)
+	# Save the dataframe
+	
+	while True:
+		
+		res = input("do you want to append the results? (y/n) ")
+		
+		if res == 'y':
+			df.to_csv('Evaluation/Patrolling/Results/dlr_results.csv', index=False, mode='a', header=False)
+			break
+		elif res == 'n':
+			df.to_csv('Evaluation/Patrolling/Results/dlr_results.csv', index=False)
+			break
+		else:
+			print('invalid input')
+
 
 
 if __name__ == '__main__':

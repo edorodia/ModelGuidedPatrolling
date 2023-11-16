@@ -16,8 +16,8 @@ import os
 MAX_TREE_LEVEL = 10
 INFLUENCE_RADIUS = 2
 POSSIBLE_ACTIONS = [0, 1, 2, 3, 4, 5, 6, 7]
-PARALLEL = True
-RENDER = False
+PARALLEL = False
+RENDER = True
 
 if RENDER:
 	plt.switch_backend('TkAgg')
@@ -25,10 +25,12 @@ if RENDER:
 
 class PatrollingNode(Node):
 	
-	def __init__(self, navigation_map, objective_map, position, name, previous_action, reward, depth, terminal=False):
+	def __init__(self, navigation_map, idleness_map, information_map, position, name, previous_action, reward, depth,
+	             terminal=False):
 		self.reward = reward
 		self.position = position.copy()
-		self.objective_map = objective_map.copy()
+		self.idleness_map = idleness_map.copy()
+		self.information_map = information_map.copy()
 		self.navigation_map = navigation_map.copy()
 		self.terminal = terminal
 		self.previous_action = previous_action
@@ -44,14 +46,17 @@ class PatrollingNode(Node):
 		for action in POSSIBLE_ACTIONS:
 			# Iterate over all the possible actions and compute the new state #
 			
-			new_objective_map, new_position, reward, is_valid = transition_function(self.objective_map,
-			                                                                        self.navigation_map,
-			                                                                        self.position,
-			                                                                        action)
+			new_idleness_map, new_information_map, new_position, reward, is_valid = transition_function(
+				self.idleness_map,
+				self.information_map,
+				self.navigation_map,
+				self.position,
+				action)
 			
 			if is_valid:
 				children.append(PatrollingNode(navigation_map=self.navigation_map,
-				                               objective_map=new_objective_map,
+				                               idleness_map=new_idleness_map,
+				                               information_map=new_information_map,
 				                               position=new_position,
 				                               reward=self.reward + reward,
 				                               depth=self.depth + 1,
@@ -73,10 +78,12 @@ class PatrollingNode(Node):
 		for action in POSSIBLE_ACTIONS:
 			
 			# Compute the new state #
-			new_objective_map, new_position, reward, is_valid = transition_function(self.objective_map,
-			                                                                        self.navigation_map,
-			                                                                        self.position,
-			                                                                        action)
+			new_idleness_map, new_information_map, new_position, reward, is_valid = transition_function(
+					self.idleness_map,
+					self.information_map,
+					self.navigation_map,
+					self.position,
+					action)
 			
 			if is_valid:
 				valid_mask[action] = 1
@@ -85,13 +92,15 @@ class PatrollingNode(Node):
 		action = np.random.choice(POSSIBLE_ACTIONS, p=valid_mask / np.sum(valid_mask))
 		
 		# Compute the new state #
-		new_objective_map, new_position, reward, is_valid = transition_function(self.objective_map,
-		                                                                        self.navigation_map,
-		                                                                        self.position,
-		                                                                        action)
+		new_idleness_map, new_information_map, new_position, reward, is_valid = transition_function(self.idleness_map,
+		                                                                                            self.information_map,
+		                                                                                            self.navigation_map,
+		                                                                                            self.position,
+		                                                                                            action)
 		
 		return PatrollingNode(navigation_map=self.navigation_map,
-		                      objective_map=new_objective_map,
+		                      idleness_map=new_idleness_map,
+		                      information_map=new_information_map,
 		                      position=new_position,
 		                      previous_action=action,
 		                      reward=self.reward + reward,
@@ -111,15 +120,16 @@ class PatrollingNode(Node):
 		return f"PatrollingNode({self.name})"
 
 
-def transition_function(objective_map, navigation_map, position, action):
+def transition_function(idleness_map, information_map, navigation_map, position, action, forgetting_factor = 0.01):
 	# Copy the objective map #
-	new_map = objective_map.copy()
+	new_idleness_map = idleness_map.copy()
+	new_information_map = information_map.copy()
 	
 	# Compute the new position #
 	movement = np.array([np.cos(2 * np.pi * action / 8).round().astype(int),
 	                     np.sin(2 * np.pi * action / 8).round().astype(int)])
 	
-	next_attempt = np.clip(position + movement, 0, np.asarray(objective_map.shape) - 1)
+	next_attempt = np.clip(position + movement, 0, np.asarray(new_idleness_map.shape) - 1)
 	
 	if navigation_map[int(next_attempt[0]), int(next_attempt[1])] == 1:
 		new_position = next_attempt.astype(int)
@@ -130,27 +140,32 @@ def transition_function(objective_map, navigation_map, position, action):
 	
 	# Compute the reward #
 	# 1) Compute the x and y coordinates of the circle
-	x, y = np.meshgrid(np.arange(0, objective_map.shape[1]), np.arange(0, objective_map.shape[0]))
+	x, y = np.meshgrid(np.arange(0, new_idleness_map.shape[1]), np.arange(0, new_idleness_map.shape[0]))
 	x = x - position[1]
 	y = y - position[0]
 	
 	distance = np.sqrt(x ** 2 + y ** 2)
 	
-	reward = np.sum(objective_map[distance <= INFLUENCE_RADIUS])
+	collected_information = np.sum(new_information_map[distance <= INFLUENCE_RADIUS])
+	collected_idleness = np.sum(new_idleness_map[distance <= INFLUENCE_RADIUS])
 	
-	new_map[distance <= INFLUENCE_RADIUS] = 0.0
+	new_idleness_map += forgetting_factor
+	new_idleness_map = np.clip(new_idleness_map, 0, 1)
+	new_idleness_map[distance <= INFLUENCE_RADIUS] = 0.0
 	
-	return new_map, new_position, reward, is_valid_action
+	reward = (1 + collected_information) * collected_idleness
+	
+	return new_idleness_map, new_information_map, new_position, reward, is_valid_action
 
 
 def optimize_environment(environment):
 	""" Optimize the environment using a Greedy approach """
 	
-	# Copy the objective map #
-	objective_map = (environment.min_information_importance + environment.model.predict()) * environment.fleet.idleness_map * environment.navigation_map
-	
 	# Copy the navigation map #
 	navigation_map = environment.navigation_map.copy()
+	
+	information_map = environment.model.predict().copy()
+	idleness_map = environment.fleet.idleness_map.copy()
 	
 	# Copy the positions #
 	positions = environment.get_positions_dict()
@@ -164,14 +179,15 @@ def optimize_environment(environment):
 		
 		# Create the root node #
 		root = PatrollingNode(navigation_map=navigation_map,
-		                      objective_map=objective_map,
+		                      idleness_map=idleness_map,
+		                      information_map=information_map,
 		                      position=agent_position,
 		                      name=f"agent_{agent_id}_position_{agent_position}_""",
 		                      previous_action=None,
 		                      depth=0,
 		                      reward=0)
 		
-		for _ in range(10):
+		for _ in range(50):
 			tree.do_rollout(root)
 		
 		# Compute the best action #
@@ -181,7 +197,8 @@ def optimize_environment(environment):
 		# next_node.reward}")
 		
 		# Update the objective map for the next agent #
-		objective_map = next_node.objective_map.copy()
+		idleness_map = next_node.idleness_map.copy()
+		information_map = next_node.information_map.copy()
 		
 		# Select the action #
 		actions[agent_id].append(next_node.previous_action)

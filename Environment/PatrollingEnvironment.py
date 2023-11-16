@@ -15,6 +15,7 @@ from PathPlanners.dijkstra import Dijkstra
 
 from Environment.exploration_policies import preComputedExplorationPolicy
 
+
 class Vehicle:
 	
 	def __init__(self,
@@ -718,6 +719,8 @@ if __name__ == "__main__":
 	
 	try:
 		
+		plt.switch_backend('TkAgg')
+		
 		from PathPlanners.LawnMower import LawnMowerAgent
 		from PathPlanners.NRRA import WanderingAgent
 		import time
@@ -752,6 +755,7 @@ if __name__ == "__main__":
 		                                   pre_exploration_policy=preComputedExplorationPolicy("PathPlanners/VRP/vrp_paths.pkl", n_agents=N),
 		                                   )
 		
+		print(env.max_num_steps)
 		env.eval = True
 		
 		for m in range(10):

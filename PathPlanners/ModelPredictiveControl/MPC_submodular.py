@@ -1,6 +1,8 @@
 from abc import ABC
 import sys
 
+import matplotlib.pyplot as plt
+
 sys.path.append('.')
 
 import numpy as np
@@ -14,7 +16,12 @@ import os
 MAX_TREE_LEVEL = 10
 INFLUENCE_RADIUS = 2
 POSSIBLE_ACTIONS = [0, 1, 2, 3, 4, 5, 6, 7]
-PARALLEL = True
+PARALLEL = False
+RENDER = True
+
+if RENDER:
+	plt.switch_backend('TkAgg')
+
 
 class PatrollingNode(Node):
 	
@@ -140,7 +147,7 @@ def optimize_environment(environment):
 	""" Optimize the environment using a Greedy approach """
 	
 	# Copy the objective map #
-	objective_map = environment.model.predict() * (0.1 + environment.fleet.idleness_map) * environment.navigation_map
+	objective_map = (environment.min_information_importance + environment.model.predict()) * environment.fleet.idleness_map * environment.navigation_map
 	
 	# Copy the navigation map #
 	navigation_map = environment.navigation_map.copy()
@@ -170,7 +177,8 @@ def optimize_environment(environment):
 		# Compute the best action #
 		next_node = tree.choose(root)
 		
-		# print(f"Agent {agent_id} has chosen action {next_node.previous_action} with expected reward {next_node.reward}")
+		# print(f"Agent {agent_id} has chosen action {next_node.previous_action} with expected reward {
+		# next_node.reward}")
 		
 		# Update the objective map for the next agent #
 		objective_map = next_node.objective_map.copy()
@@ -223,6 +231,7 @@ def experiment(arguments):
 	                                   model='vaeUnet',
 	                                   seed=50000,
 	                                   int_observation=True,
+	                                   min_information_importance=1.0,
 	                                   )
 	
 	env.eval = True
@@ -249,7 +258,8 @@ def experiment(arguments):
 			all_done = np.all(list(done.values()))
 			
 			# Render the environment
-			# env.render()
+			if RENDER:
+				env.render()
 			
 			t += 1
 			
@@ -295,12 +305,11 @@ if __name__ == "__main__":
 		
 		df.to_csv('Evaluation/Patrolling/Results/MCTS.csv', index=False)
 		
-		
 		if PARALLEL:
 			pool.join()
 			pool.close()
-			
-		
+	
+	
 	
 	except KeyboardInterrupt:
 		print("Exception occurred")

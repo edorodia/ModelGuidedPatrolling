@@ -4,21 +4,17 @@ import sys
 sys.path.append('.')
 
 import numpy as np
-import time
-from copy import copy
 from Environment.PatrollingEnvironment import DiscreteModelBasedPatrolling
-from multiprocessing import Pool
-import matplotlib.pyplot as plt
-import multiprocessing as mp
 from tqdm import tqdm
 import pandas as pd
-from copy import copy, deepcopy
 from PathPlanners.ModelPredictiveControl.MCTS import MCTS, Node
+import multiprocessing as mp
+import os
 
 MAX_TREE_LEVEL = 10
 INFLUENCE_RADIUS = 2
 POSSIBLE_ACTIONS = [0, 1, 2, 3, 4, 5, 6, 7]
-
+PARALLEL = True
 
 class PatrollingNode(Node):
 	
@@ -106,20 +102,17 @@ class PatrollingNode(Node):
 	
 	def __str__(self):
 		return f"PatrollingNode({self.name})"
-	
-	
+
+
 def transition_function(objective_map, navigation_map, position, action):
 	# Copy the objective map #
 	new_map = objective_map.copy()
-	
 	
 	# Compute the new position #
 	movement = np.array([np.cos(2 * np.pi * action / 8).round().astype(int),
 	                     np.sin(2 * np.pi * action / 8).round().astype(int)])
 	
 	next_attempt = np.clip(position + movement, 0, np.asarray(objective_map.shape) - 1)
-	
-	
 	
 	if navigation_map[int(next_attempt[0]), int(next_attempt[1])] == 1:
 		new_position = next_attempt.astype(int)
@@ -177,7 +170,7 @@ def optimize_environment(environment):
 		# Compute the best action #
 		next_node = tree.choose(root)
 		
-		#print(f"Agent {agent_id} has chosen action {next_node.previous_action} with expected reward {next_node.reward}")
+		# print(f"Agent {agent_id} has chosen action {next_node.previous_action} with expected reward {next_node.reward}")
 		
 		# Update the objective map for the next agent #
 		objective_map = next_node.objective_map.copy()
@@ -186,118 +179,130 @@ def optimize_environment(environment):
 		actions[agent_id].append(next_node.previous_action)
 	
 	return actions
-		
-		
+
+
+def experiment(arguments):
+	RUNS = 100
 	
+	# Load the map
+	nav_map = np.genfromtxt("Environment/Maps/map.txt", delimiter=' ')
+	
+	# Create the environment
+	scenario_map = np.genfromtxt('Environment/Maps/map.txt', delimiter=' ')
+	
+	N = 4
+	control_horizon = 3
+	
+	# Take the initial_positions from the paths
+	
+	initial_positions = np.array([[42, 32],
+	                              [50, 40],
+	                              [43, 44],
+	                              [35, 45]])
+	
+	dataframe = []
+	
+	benchmark = arguments['benchmark']
+	case = arguments['case']
+	
+	print(f"Running benchmark {benchmark} with case {case}")
+	
+	env = DiscreteModelBasedPatrolling(n_agents=N,
+	                                   navigation_map=scenario_map,
+	                                   initial_positions=initial_positions,
+	                                   model_based=True,
+	                                   movement_length=2,
+	                                   resolution=1,
+	                                   influence_radius=2,
+	                                   forgetting_factor=0.5,
+	                                   max_distance=400,
+	                                   benchmark='algae_bloom',
+	                                   dynamic=case == 'dynamic',
+	                                   reward_weights=[10, 10],
+	                                   reward_type='weighted_idleness',
+	                                   model='vaeUnet',
+	                                   seed=50000,
+	                                   int_observation=True,
+	                                   )
+	
+	env.eval = True
+	
+	for run in tqdm(range(RUNS)):
+		
+		t = 0
+		all_done = False
+		env.reset()
+		total_reward = 0
+		
+		while not all_done:
+			# Optimize the environment
+			
+			best = optimize_environment(environment=env)
+			
+			next_action = {agent_id: best[agent_id][0] for agent_id in best.keys()}
+			
+			# Take the step
+			obs, reward, done, info = env.step(next_action, action_type='discrete')
+			
+			total_reward += np.sum(list(reward.values()))
+			
+			all_done = np.all(list(done.values()))
+			
+			# Render the environment
+			# env.render()
+			
+			t += 1
+			
+			dataframe.append(
+					[run, t, case, total_reward, info['true_reward'], info['mse'], info['mae'], info['r2'],
+					 info['total_average_distance'], info['mean_idleness'],
+					 info['mean_weighted_idleness'],
+					 info['coverage_percentage'], info['normalization_value'], 'MCTS', benchmark])
+	
+	df = pd.DataFrame(dataframe,
+	                  columns=['run', 'step', 'case', 'total_reward', 'total_true_reward', 'mse', 'mae', 'r2',
+	                           'total_average_distance',
+	                           'mean_idleness', 'mean_weighted_idleness', 'coverage_percentage',
+	                           'normalization_value', 'Algorithm', 'Benchmark'])
+	
+	return df
+
 
 if __name__ == "__main__":
 	
+	exp_args_0 = [{'benchmark': 'algae_bloom', 'case': 'static'},
+	              {'benchmark': 'algae_bloom', 'case': 'dynamic'}]
+	
+	exp_args_1 = [{'benchmark': 'shekel', 'case': 'static'}]
+	
+	exp_args_all = exp_args_0 + exp_args_1
 	
 	try:
 		
-		RUNS = 100
+		if PARALLEL:
+			pool = mp.Pool(processes=len(exp_args_all))
+			results = pool.map(experiment, exp_args_all)
+		else:
+			results = []
+			for exp_arg in exp_args_all:
+				results.append(experiment(exp_arg))
 		
-		# Load the map
-		nav_map = np.genfromtxt("Environment/Maps/map.txt", delimiter=' ')
+		df = pd.concat(results, ignore_index=False)
 		
-		# Create the environment
-		scenario_map = np.genfromtxt('Environment/Maps/map.txt', delimiter=' ')
+		# Check if the folder exists
+		if not os.path.exists('Evaluation/Patrolling/Results'):
+			os.makedirs('Evaluation/Patrolling/Results')
 		
-		N = 4
-		control_horizon = 3
+		df.to_csv('Evaluation/Patrolling/Results/MCTS.csv', index=False)
 		
-		# Take the initial_positions from the paths
 		
-		initial_positions = np.array([[42, 32],
-		                              [50, 40],
-		                              [43, 44],
-		                              [35, 45]])
-		
-		dataframe = []
-		
-		for benchmark in ['algae_bloom', 'shekel']:
-		
-			for case in ['dynamic', 'static']:
-				
-				if benchmark == 'shekel' and case == 'dynamic':
-					continue
-				
-				env = DiscreteModelBasedPatrolling(n_agents=N,
-				                                   navigation_map=scenario_map,
-				                                   initial_positions=initial_positions,
-				                                   model_based=True,
-				                                   movement_length=2,
-				                                   resolution=1,
-				                                   influence_radius=2,
-				                                   forgetting_factor=0.5,
-				                                   max_distance=400,
-				                                   benchmark='algae_bloom',
-				                                   dynamic=case == 'dynamic',
-				                                   reward_weights=[10, 10],
-				                                   reward_type='weighted_idleness',
-				                                   model='vaeUnet',
-				                                   seed=50000,
-				                                   int_observation=True,
-				                                   )
+		if PARALLEL:
+			pool.join()
+			pool.close()
 			
-				env.eval = True
-				
-				for run in tqdm(range(RUNS)):
-					
-					t = 0
-					all_done = False
-					env.reset()
-					total_reward = 0
-					
-					while not all_done:
-						# Optimize the environment
-	
-						best = optimize_environment(environment=env)
-						
-						next_action = {agent_id: best[agent_id][0] for agent_id in best.keys()}
-						
-						# Take the step
-						obs, reward, done, info = env.step(next_action, action_type='discrete')
-						
-						total_reward += np.sum(list(reward.values()))
-						
-						all_done = np.all(list(done.values()))
-						
-						# Render the environment
-						# env.render()
-						
-						t += 1
-						
-						dataframe.append(
-								[run, t, case, total_reward, info['true_reward'], info['mse'], info['mae'], info['r2'],
-								 info['total_average_distance'], info['mean_idleness'],
-								 info['mean_weighted_idleness'],
-								 info['coverage_percentage'], info['normalization_value'], 'MCTS', benchmark])
 		
-		df = pd.DataFrame(dataframe,
-		                  columns=['run', 'step', 'case', 'total_reward', 'total_true_reward', 'mse', 'mae', 'r2',
-		                           'total_average_distance',
-		                           'mean_idleness', 'mean_weighted_idleness', 'coverage_percentage',
-		                           'normalization_value', 'Algorithm', 'Benchmark'])
-		
-		# Save the dataframe
-		while True:
-			
-			#res = input("do you want to append the results? (y/n) ")
-			
-			res = 'n'
-			
-			if res == 'y':
-				df.to_csv('Evaluation/Patrolling/Results/mcts_results.csv', index=False, mode='a', header=False)
-				break
-			elif res == 'n':
-				df.to_csv('Evaluation/Patrolling/Results/mcts_results.csv', index=False)
-				break
-			else:
-				print('invalid input')
-		
-	
 	
 	except KeyboardInterrupt:
 		print("Exception occurred")
 		print("Shutting down")
+		pool.terminate()

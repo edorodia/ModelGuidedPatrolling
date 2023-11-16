@@ -16,8 +16,8 @@ import os
 MAX_TREE_LEVEL = 10
 INFLUENCE_RADIUS = 2
 POSSIBLE_ACTIONS = [0, 1, 2, 3, 4, 5, 6, 7]
-PARALLEL = False
-RENDER = True
+PARALLEL = True
+RENDER = False
 
 if RENDER:
 	plt.switch_backend('TkAgg')

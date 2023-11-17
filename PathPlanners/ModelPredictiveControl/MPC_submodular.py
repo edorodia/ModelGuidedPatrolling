@@ -18,8 +18,8 @@ import argparse
 MAX_TREE_LEVEL = 10
 INFLUENCE_RADIUS = 2
 POSSIBLE_ACTIONS = [0, 1, 2, 3, 4, 5, 6, 7]
-PARALLEL = True
-RENDER = False
+PARALLEL = False
+RENDER = True
 
 if RENDER:
 	plt.switch_backend('TkAgg')
@@ -268,10 +268,7 @@ def experiment(arguments):
 		while not all_done:
 			# Optimize the environment
 			
-			time0 = time.time()
 			best = optimize_environment(environment=env)
-			time1 = time.time()
-			print(f"Time elapsed: {time1 - time0}")
 			
 			next_action = {agent_id: best[agent_id][0] for agent_id in best.keys()}
 			

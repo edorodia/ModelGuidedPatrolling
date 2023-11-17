@@ -32,7 +32,7 @@ def main():
 	                                   resolution=1,
 	                                   influence_radius=2,
 	                                   forgetting_factor=0.5,
-	                                   max_distance=600,
+	                                   max_distance=400,
 	                                   benchmark='algae_bloom',
 	                                   dynamic=False,
 	                                   reward_weights=[10, 10],

@@ -588,7 +588,7 @@ class MultiAgentDuelingDQNAgent:
 				actions = {agent_id: action for agent_id, action in actions.items() if not done[agent_id]}
 				
 				# Process the agent step #
-				next_state, reward, done = self.step(actions)
+				next_state, reward, done, info = self.step(actions)
 				
 				if render:
 					self.env.render()

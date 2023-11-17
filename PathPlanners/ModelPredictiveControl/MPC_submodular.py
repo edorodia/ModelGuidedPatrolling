@@ -1,3 +1,4 @@
+import time
 from abc import ABC
 import sys
 
@@ -12,12 +13,13 @@ import pandas as pd
 from PathPlanners.ModelPredictiveControl.MCTS import MCTS, Node
 import multiprocessing as mp
 import os
+import argparse
 
 MAX_TREE_LEVEL = 10
 INFLUENCE_RADIUS = 2
 POSSIBLE_ACTIONS = [0, 1, 2, 3, 4, 5, 6, 7]
-PARALLEL = False
-RENDER = True
+PARALLEL = True
+RENDER = False
 
 if RENDER:
 	plt.switch_backend('TkAgg')
@@ -187,7 +189,7 @@ def optimize_environment(environment):
 		                      depth=0,
 		                      reward=0)
 		
-		for _ in range(50):
+		for _ in range(30):
 			tree.do_rollout(root)
 		
 		# Compute the best action #
@@ -240,18 +242,21 @@ def experiment(arguments):
 	                                   resolution=1,
 	                                   influence_radius=2,
 	                                   forgetting_factor=0.5,
-	                                   max_distance=600,
+	                                   max_distance=400,
 	                                   benchmark=benchmark,
 	                                   dynamic=case == 'dynamic',
 	                                   reward_weights=[10, 10],
 	                                   reward_type='weighted_idleness',
-	                                   model='vaeUnet',
+	                                   model='miopic',
 	                                   seed=50000,
 	                                   int_observation=True,
 	                                   min_information_importance=1.0,
 	                                   )
 	
 	env.eval = True
+	
+	positions = []
+	
 	
 	for run in tqdm(range(RUNS)):
 		
@@ -263,7 +268,10 @@ def experiment(arguments):
 		while not all_done:
 			# Optimize the environment
 			
+			time0 = time.time()
 			best = optimize_environment(environment=env)
+			time1 = time.time()
+			print(f"Time elapsed: {time1 - time0}")
 			
 			next_action = {agent_id: best[agent_id][0] for agent_id in best.keys()}
 			
@@ -284,7 +292,9 @@ def experiment(arguments):
 					[run, t, case, total_reward, info['true_reward'], info['mse'], info['mae'], info['r2'],
 					 info['total_average_distance'], info['mean_idleness'],
 					 info['mean_weighted_idleness'],
-					 info['coverage_percentage'], info['normalization_value'], 'MCTS', benchmark])
+					 info['coverage_percentage'], info['normalization_value'], 'MCTS_miopic', benchmark])
+			
+		
 	
 	df = pd.DataFrame(dataframe,
 	                  columns=['run', 'step', 'case', 'total_reward', 'total_true_reward', 'mse', 'mae', 'r2',
@@ -320,10 +330,9 @@ if __name__ == "__main__":
 		if not os.path.exists('Evaluation/Patrolling/Results'):
 			os.makedirs('Evaluation/Patrolling/Results')
 		
-		df.to_csv('Evaluation/Patrolling/Results/MCTS.csv', index=False)
+		df.to_csv('Evaluation/Patrolling/Results/MCTS_miopic.csv', index=False)
 		
 		if PARALLEL:
-			pool.join()
 			pool.close()
 	
 	

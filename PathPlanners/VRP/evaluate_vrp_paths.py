@@ -10,6 +10,8 @@ import os
 
 plt.switch_backend('TkAgg')
 
+
+
 def positions_to_action(pos_1, pos_2):
 	angle = np.arctan2(pos_2[1] - pos_1[1], pos_2[0] - pos_1[0])
 	distance = np.linalg.norm(pos_2 - pos_1)
@@ -24,7 +26,9 @@ def tuple_to_dict(tup):
 
 
 def main():
+	
 	RUNS = 100
+	SAVE_MAPS = False
 	
 	# Load the paths from pickle
 	with open('PathPlanners/VRP/vrp_paths_solution.pkl', 'rb') as handle:
@@ -49,9 +53,10 @@ def main():
 	# 	paths[i] = paths[i][:-1]
 	
 	dataframe = []
+	positions = []
+	gts = []
 	
 	# Interpolate the paths to double the number of points
-
 	
 	for case in ['dynamic', 'static']:
 		
@@ -59,7 +64,7 @@ def main():
 			
 			if benchmark == 'shekel' and case == 'dynamic':
 				continue
-		
+			
 			env = DiscreteModelBasedPatrolling(n_agents=N,
 			                                   navigation_map=scenario_map,
 			                                   initial_positions=initial_positions,
@@ -68,13 +73,13 @@ def main():
 			                                   resolution=1,
 			                                   influence_radius=2,
 			                                   forgetting_factor=0.5,
-			                                   max_distance=600,
-			                                   benchmark = benchmark,
-			                                   dynamic = case == 'dynamic' and benchmark == 'algae_bloom',
+			                                   max_distance=400,
+			                                   benchmark=benchmark,
+			                                   dynamic=case == 'dynamic' and benchmark == 'algae_bloom',
 			                                   reward_weights=[10, 10],
 			                                   reward_type='weighted_idleness',
 			                                   model='vaeUnet',
-			                                   seed=50000,
+			                                   seed=50006,
 			                                   int_observation=True,
 			                                   previous_exploration=False
 			                                   )
@@ -87,6 +92,8 @@ def main():
 				all_done = False
 				env.reset()
 				total_reward = 0
+				
+				gts.append(env.ground_truth.read())
 				
 				while not all_done:
 					# Take the first action
@@ -101,35 +108,51 @@ def main():
 					total_reward += np.sum(list(reward.values()))
 					
 					# Render the environment
-					env.render()
-					plt.pause(0.5)
+					# env.render()
+					# plt.pause(0.5)
 					
 					t += 1
 					
-					dataframe.append([run, t, case, total_reward, info['true_reward'], info['mse'], info['mae'], info['r2'],
-					                  info['total_average_distance'], info['mean_idleness'],
-					                  info['mean_weighted_idleness'],
-					                  info['coverage_percentage'], info['normalization_value'], 'VRP', benchmark])
+					dataframe.append(
+							[run, t, case, total_reward, info['true_reward'], info['mse'], info['mae'], info['r2'],
+							 info['total_average_distance'], info['mean_idleness'],
+							 info['mean_weighted_idleness'],
+							 info['coverage_percentage'], info['normalization_value'], 'VRP', benchmark])
+					
+					# To save the positions and map
+					agent_positions = env.get_positions()
+					positions.append(agent_positions)
+		
+			# exit()
 	
 	df = pd.DataFrame(dataframe,
-	                  columns=['run', 'step', 'case', 'total_reward', 'total_true_reward', 'mse', 'mae', 'r2', 'total_average_distance',
+	                  columns=['run', 'step', 'case', 'total_reward', 'total_true_reward', 'mse', 'mae', 'r2',
+	                           'total_average_distance',
 	                           'mean_idleness', 'mean_weighted_idleness', 'coverage_percentage',
 	                           'normalization_value', 'Algorithm', 'Benchmark'])
 	
 	# Save the dataframe
 	
-	while True:
+	if SAVE_MAPS:
 		
-		res = input("do you want to append the results? (y/n) ")
+		""" Store the reesults using pickle """
+		with open('Evaluation/Patrolling/Results/VRP_paths_and_maps.pkl', 'wb') as handle:
+			pickle.dump((gts, positions), handle, protocol=pickle.HIGHEST_PROTOCOL)
+	
+	else:
 		
-		if res == 'y':
-			df.to_csv('Evaluation/Patrolling/Results/vrp_results.csv', index=False, mode='a', header=False)
-			break
-		elif res == 'n':
-			df.to_csv('Evaluation/Patrolling/Results/vrp_results.csv', index=False)
-			break
-		else:
-			print('invalid input')
+		while True:
+			
+			res = input("do you want to append the results? (y/n) ")
+			
+			if res == 'y':
+				df.to_csv('Evaluation/Patrolling/Results/vrp_results.csv', index=False, mode='a', header=False)
+				break
+			elif res == 'n':
+				df.to_csv('Evaluation/Patrolling/Results/vrp_results.csv', index=False)
+				break
+			else:
+				print('invalid input')
 
 
 if __name__ == '__main__':

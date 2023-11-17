@@ -698,8 +698,8 @@ class DiscreteModelBasedPatrolling:
 		normalization_value = np.sum(y_real)
 		r2_score = 1 - np.sum((y_real - y_pred) ** 2) / np.sum((y_real - np.mean(y_real)) ** 2)
 		total_average_distance = np.mean([veh.distance for veh in self.fleet.vehicles])
-		mean_idleness = np.mean(self.fleet.idleness_map)
-		mean_weighted_idleness = np.mean(self.fleet.idleness_map * self.model.predict())
+		mean_idleness = np.sum(self.fleet.idleness_map)/np.sum(self.navigation_map)
+		mean_weighted_idleness = np.sum(self.fleet.idleness_map * self.ground_truth.read())/np.sum(self.navigation_map)
 		coverage_percentage = np.sum(self.fleet.visited_map) / np.sum(self.navigation_map)
 		true_reward = np.sum([self.true_reward[agent_id] for agent_id in self.fleet.vehicles_ids])
 		

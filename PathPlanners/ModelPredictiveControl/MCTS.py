@@ -34,6 +34,27 @@ class MCTS:
 		
 		return max(self.children[node], key=score)
 	
+	def choose_terminal(self, node):
+		""" Recursively find each best children from node until a terminal state is reached. Return this final node """
+		
+		def score(n):
+			if self.N[n] == 0:
+				return float("-inf")  # avoid unseen moves
+			return self.Q[n] / self.N[n]  # average reward]
+		
+		if node.is_terminal():
+			return node
+		
+		else:
+			""" Search for the best children of the node """
+			# If the node has not been expanded, return the node
+			if node not in self.children:
+				return node
+			else:
+				best_next_children = max(self.children[node], key=score)
+				return self.choose_terminal(best_next_children)
+			
+	
 	def do_rollout(self, node):
 		"""Make the tree one layer better. (Train for one iteration.)"""
 		path = self._select(node)
@@ -41,6 +62,7 @@ class MCTS:
 		self._expand(leaf)
 		reward = self._simulate(leaf)
 		self._backpropagate(path, reward)
+		
 	
 	def _select(self, node):
 		"""Find an unexplored descendent of `node`"""

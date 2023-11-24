@@ -68,7 +68,7 @@ class PatrollingNode(Node):
 		return children
 	
 	def is_terminal(self):
-		return self.terminal
+		return self.terminal or self.depth >= 10
 	
 	def get_reward(self):
 		return self.reward
@@ -189,18 +189,20 @@ def optimize_environment(environment):
 		                      depth=0,
 		                      reward=0)
 		
-		for _ in range(30):
+		for _ in range(50):
 			tree.do_rollout(root)
 		
 		# Compute the best action #
 		next_node = tree.choose(root)
 		
+		last_node = tree.choose_terminal(root)
+		
 		# print(f"Agent {agent_id} has chosen action {next_node.previous_action} with expected reward {
 		# next_node.reward}")
 		
 		# Update the objective map for the next agent #
-		idleness_map = next_node.idleness_map.copy()
-		information_map = next_node.information_map.copy()
+		idleness_map = last_node.idleness_map.copy()
+		information_map = last_node.information_map.copy()
 		
 		# Select the action #
 		actions[agent_id].append(next_node.previous_action)
@@ -218,7 +220,6 @@ def experiment(arguments):
 	scenario_map = np.genfromtxt('Environment/Maps/map.txt', delimiter=' ')
 	
 	N = 4
-	control_horizon = 3
 	
 	# Take the initial_positions from the paths
 	
@@ -241,13 +242,13 @@ def experiment(arguments):
 	                                   movement_length=2,
 	                                   resolution=1,
 	                                   influence_radius=2,
-	                                   forgetting_factor=0.5,
+	                                   forgetting_factor=0.01,
 	                                   max_distance=400,
 	                                   benchmark=benchmark,
 	                                   dynamic=case == 'dynamic',
 	                                   reward_weights=[10, 10],
 	                                   reward_type='weighted_idleness',
-	                                   model='miopic',
+	                                   model='vaeUnet',
 	                                   seed=50000,
 	                                   int_observation=True,
 	                                   min_information_importance=1.0,

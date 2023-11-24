@@ -167,14 +167,14 @@ class CoordinatedFleet:
 	             navigation_map: np.ndarray,
 	             total_max_distance: float,
 	             influence_radius: float,
-	             max_num_of_steps: float,
+	             forgetting_factor: float
 	             ):
 		
 		self.navigation_map = navigation_map
 		self.initial_positions = initial_positions
 		self.total_max_distance = total_max_distance
 		self.n_vehicles = n_vehicles
-		self.max_num_of_steps = max_num_of_steps
+		self.forgetting_factor = forgetting_factor
 		
 		self.idleness_map = np.ones_like(self.navigation_map)
 		self.idleness_map_ = np.ones_like(self.navigation_map)
@@ -318,7 +318,7 @@ class CoordinatedFleet:
 		self.idleness_map_ = self.idleness_map.copy()
 		
 		# Update the idleness map #
-		self.idleness_map += 1 / self.max_num_of_steps  # Increment the idleness map everywhere
+		self.idleness_map += self.forgetting_factor # Increment the idleness map everywhere
 		
 		self.idleness_map = np.clip(self.idleness_map, 0, 1)  # Clip the idleness map
 		
@@ -344,7 +344,7 @@ class DiscreteModelBasedPatrolling:
 	             resolution: int,
 	             max_distance: float,
 	             influence_radius: float,
-	             forgetting_factor: float,
+	             forgetting_factor: float = 0.01,
 	             reward_type='weighted_importance',
 	             reward_weights=(1, 1),
 	             benchmark: str = 'algae_bloom',
@@ -393,6 +393,8 @@ class DiscreteModelBasedPatrolling:
 		
 		self.max_agent_steps = self.max_distance // self.move_length + 1
 		
+		self.forgetting_factor = forgetting_factor
+		
 		""" Pre exploration Parameters """
 		self.previous_exploration = previous_exploration
 		self.pre_exploration_policy = pre_exploration_policy
@@ -407,7 +409,7 @@ class DiscreteModelBasedPatrolling:
 		                              navigation_map=self.navigation_map,
 		                              total_max_distance=self.max_distance,
 		                              influence_radius=self.influence_radius,
-		                              max_num_of_steps=self.max_num_steps, )
+		                              forgetting_factor=self.forgetting_factor, )
 		
 		""" Create the observation space """
 		
@@ -432,6 +434,11 @@ class DiscreteModelBasedPatrolling:
 			self.model = MiopicModel(navigation_map=self.navigation_map,
 			                         resolution=self.resolution,
 			                         influence_radius=self.influence_radius,
+			                         dt=0.7)
+		elif model == 'none':
+			self.model = MiopicModel(navigation_map=self.navigation_map,
+			                         resolution=self.resolution,
+			                         influence_radius=0,
 			                         dt=0.7)
 		elif model == 'rknn':
 			self.model = RKNNmodel(navigation_map=self.navigation_map,
@@ -741,13 +748,13 @@ if __name__ == "__main__":
 		                                   movement_length=2,
 		                                   resolution=1,
 		                                   influence_radius=2,
-		                                   forgetting_factor=0.5,
+		                                   forgetting_factor=0.01,
 		                                   max_distance=400,
 		                                   benchmark='shekel',
 		                                   dynamic=False,
 		                                   reward_weights=[10, 10],
 		                                   reward_type='weighted_idleness',
-		                                   model='vaeUnet',
+		                                   model='none',
 		                                   seed=50000,
 		                                   int_observation=True,
 		                                   previous_exploration=True,

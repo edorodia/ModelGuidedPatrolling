@@ -23,6 +23,13 @@ RENDER = True
 
 if RENDER:
 	plt.switch_backend('TkAgg')
+	
+	
+# Parse arguments
+parser = argparse.ArgumentParser(description='Run the MCTS algorithm for the patrolling problem')
+parser.add_argument('--model', type=str, default='vaeUnet')
+
+args = parser.parse_args()
 
 
 class PatrollingNode(Node):
@@ -248,7 +255,7 @@ def experiment(arguments):
 	                                   dynamic=case == 'dynamic',
 	                                   reward_weights=[10, 10],
 	                                   reward_type='weighted_idleness',
-	                                   model='vaeUnet',
+	                                   model=args.model,
 	                                   seed=50000,
 	                                   int_observation=True,
 	                                   min_information_importance=1.0,
@@ -290,7 +297,7 @@ def experiment(arguments):
 					[run, t, case, total_reward, info['true_reward'], info['mse'], info['mae'], info['r2'],
 					 info['total_average_distance'], info['mean_idleness'],
 					 info['mean_weighted_idleness'],
-					 info['coverage_percentage'], info['normalization_value'], 'MCTS_miopic', benchmark])
+					 info['coverage_percentage'], info['normalization_value'], 'MCTS_'+args.model, benchmark])
 			
 		
 	
@@ -328,7 +335,7 @@ if __name__ == "__main__":
 		if not os.path.exists('Evaluation/Patrolling/Results'):
 			os.makedirs('Evaluation/Patrolling/Results')
 		
-		df.to_csv('Evaluation/Patrolling/Results/MCTS_miopic.csv', index=False)
+		df.to_csv('Evaluation/Patrolling/Results/MCTS_' + args.model + '.csv', index=False)
 		
 		if PARALLEL:
 			pool.close()

@@ -20,10 +20,10 @@ import seaborn as sns
 
 # Load study  using pickle
 
-with open(r'runs/optuna/algae_bloom/optuna_algae_bloom_20231023-041050', 'rb') as f:
+with open(r'runs/optuna/algae_bloom/20231022-215729/optuna_algae_bloom_20231023-041050', 'rb') as f:
     study_algae = pickle.load(f)
 
-with open(r'runs/optuna/shekel/optuna_shekel_20231023-050846', 'rb') as f:
+with open(r'runs/optuna/shekel/20231022-215721/optuna_shekel_20231023-050846', 'rb') as f:
     study_shekel = pickle.load(f)
 
 #study_algae = pickle.load(r'runs/optuna/algae_bloom/optuna_algae_bloom_20231023-041050')

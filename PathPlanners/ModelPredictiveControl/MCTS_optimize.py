@@ -15,7 +15,7 @@ import multiprocessing as mp
 import os
 import argparse
 
-MAX_TREE_LEVEL = 10
+MAX_TREE_LEVEL = 20
 INFLUENCE_RADIUS = 2
 POSSIBLE_ACTIONS = [0, 1, 2, 3, 4, 5, 6, 7]
 PARALLEL = False
@@ -27,7 +27,7 @@ if RENDER:
 	
 # Parse arguments
 parser = argparse.ArgumentParser(description='Run the MCTS algorithm for the patrolling problem')
-parser.add_argument('--model', type=str, default='vaeUnet')
+parser.add_argument('--model', type=str, default='miopic')
 
 args = parser.parse_args()
 
@@ -35,7 +35,8 @@ args = parser.parse_args()
 class PatrollingNode(Node):
 	
 	def __init__(self, navigation_map, idleness_map, information_map, position, name, previous_action, reward, depth,
-	             terminal=False):
+	             terminal=False, max_depth=50):
+		
 		self.reward = reward
 		self.position = position.copy()
 		self.idleness_map = idleness_map.copy()
@@ -45,15 +46,26 @@ class PatrollingNode(Node):
 		self.previous_action = previous_action
 		self.name = name
 		self.depth = depth
-	
-	def find_children(self):
+		self.max_depth = max_depth
+		
+	def find_children(self, previous_action=None):
 		"""All possible successors of this state.
 		Returns a set of PatrollingNode instances."""
 		
 		children = []
 		
+		# Compute the reversed action #
+		if previous_action is None:
+			reversed_action = None
+		else:
+			reversed_action = (previous_action + 4) % 8
+		
 		for action in POSSIBLE_ACTIONS:
 			# Iterate over all the possible actions and compute the new state #
+			
+			if reversed_action is not None:
+				if action == reversed_action:
+					continue
 			
 			new_idleness_map, new_information_map, new_position, reward, is_valid = transition_function(
 				self.idleness_map,
@@ -75,15 +87,63 @@ class PatrollingNode(Node):
 		return children
 	
 	def is_terminal(self):
-		return self.terminal or self.depth >= 10
+		return self.terminal or self.depth >= self.max_depth
 	
 	def get_reward(self):
 		return self.reward
 	
-	def find_random_child(self):
+	def find_child_randomly(self):
 		
 		# Compute every single possible action #
+		
 		valid_mask = np.zeros(8)
+		future_rewards = np.zeros(8)
+		
+		
+		for action in POSSIBLE_ACTIONS:
+			
+			
+			# Compute the new state #
+			new_idleness_map, new_information_map, new_position, reward, is_valid = transition_function(
+					self.idleness_map,
+					self.information_map,
+					self.navigation_map,
+					self.position,
+					action)
+			
+			if is_valid:
+				valid_mask[action] = 1
+				future_rewards[action] = reward
+			else:
+				valid_mask[action] = 0
+				future_rewards[action] = -np.inf
+		
+		action = np.random.choice(np.where(valid_mask == 1)[0])
+		
+		# Compute the new state #
+		new_idleness_map, new_information_map, new_position, reward, is_valid = transition_function(self.idleness_map,
+		                                                                                            self.information_map,
+		                                                                                            self.navigation_map,
+		                                                                                            self.position,
+		                                                                                            action)
+		
+		return PatrollingNode(navigation_map=self.navigation_map,
+		                      idleness_map=new_idleness_map,
+		                      information_map=new_information_map,
+		                      position=new_position,
+		                      previous_action=action,
+		                      reward=self.reward + reward,
+		                      depth=self.depth + 1,
+		                      name=self.name + str(action))
+	
+	def find_child_heuristically(self):
+		
+		
+		# Compute every single possible action #
+		
+		valid_mask = np.zeros(8)
+		future_rewards = np.zeros(8)
+		
 		for action in POSSIBLE_ACTIONS:
 			
 			# Compute the new state #
@@ -96,9 +156,13 @@ class PatrollingNode(Node):
 			
 			if is_valid:
 				valid_mask[action] = 1
+				future_rewards[action] = reward
+			else:
+				valid_mask[action] = 0
+				future_rewards[action] = -np.inf
 		
-		# Select a random action #
-		action = np.random.choice(POSSIBLE_ACTIONS, p=valid_mask / np.sum(valid_mask))
+		# Select the action of the maximum reward - Greedy heuristic #
+		action = np.argmax(future_rewards)
 		
 		# Compute the new state #
 		new_idleness_map, new_information_map, new_position, reward, is_valid = transition_function(self.idleness_map,
@@ -129,14 +193,14 @@ class PatrollingNode(Node):
 		return f"PatrollingNode({self.name})"
 
 
-def transition_function(idleness_map, information_map, navigation_map, position, action, forgetting_factor = 0.01):
+def transition_function(idleness_map, information_map, navigation_map, position, action, forgetting_factor = 0.01, movement_length = 2):
 	# Copy the objective map #
 	new_idleness_map = idleness_map.copy()
 	new_information_map = information_map.copy()
 	
 	# Compute the new position #
 	movement = np.array([np.cos(2 * np.pi * action / 8).round().astype(int),
-	                     np.sin(2 * np.pi * action / 8).round().astype(int)])
+	                     np.sin(2 * np.pi * action / 8).round().astype(int)]) * movement_length
 	
 	next_attempt = np.clip(position + movement, 0, np.asarray(new_idleness_map.shape) - 1)
 	
@@ -150,13 +214,13 @@ def transition_function(idleness_map, information_map, navigation_map, position,
 	# Compute the reward #
 	# 1) Compute the x and y coordinates of the circle
 	x, y = np.meshgrid(np.arange(0, new_idleness_map.shape[1]), np.arange(0, new_idleness_map.shape[0]))
-	x = x - position[1]
-	y = y - position[0]
+	x = x - new_position[1]
+	y = y - new_position[0]
 	
 	distance = np.sqrt(x ** 2 + y ** 2)
 	
-	collected_information = np.sum(new_information_map[distance <= INFLUENCE_RADIUS])
-	collected_idleness = np.sum(new_idleness_map[distance <= INFLUENCE_RADIUS])
+	collected_information = np.mean(new_information_map[distance <= INFLUENCE_RADIUS])
+	collected_idleness = np.mean(new_idleness_map[distance <= INFLUENCE_RADIUS])
 	
 	new_idleness_map += forgetting_factor
 	new_idleness_map = np.clip(new_idleness_map, 0, 1)
@@ -182,6 +246,7 @@ def optimize_environment(environment):
 	# Action dictionary #
 	actions = {agent_id: [] for agent_id in positions.keys()}
 	
+	
 	for agent_id, agent_position in positions.items():
 		
 		tree = MCTS(exploration_weight=1.0, max_depth=MAX_TREE_LEVEL)
@@ -191,25 +256,25 @@ def optimize_environment(environment):
 		                      idleness_map=idleness_map,
 		                      information_map=information_map,
 		                      position=agent_position,
-		                      name=f"agent_{agent_id}_position_{agent_position}_""",
+		                      name="",
 		                      previous_action=None,
 		                      depth=0,
-		                      reward=0)
+		                      reward=0,
+		                      max_depth=MAX_TREE_LEVEL)
 		
-		for _ in range(50):
+		for _ in range(20):
 			tree.do_rollout(root)
 		
 		# Compute the best action #
 		next_node = tree.choose(root)
 		
-		last_node = tree.choose_terminal(root)
+		last_node = tree.choose_terminal(next_node)
 		
 		# print(f"Agent {agent_id} has chosen action {next_node.previous_action} with expected reward {
 		# next_node.reward}")
 		
 		# Update the objective map for the next agent #
 		idleness_map = last_node.idleness_map.copy()
-		information_map = last_node.information_map.copy()
 		
 		# Select the action #
 		actions[agent_id].append(next_node.previous_action)
@@ -242,7 +307,7 @@ def experiment(arguments):
 	
 	print(f"Running benchmark {benchmark} with case {case}")
 	
-	env = DiscreteModelBasedPatrolling(n_agents=N,
+	env = DiscreteModelBasedPatrolling(n_agents=1,
 	                                   navigation_map=scenario_map,
 	                                   initial_positions=initial_positions,
 	                                   model_based=True,
@@ -256,7 +321,7 @@ def experiment(arguments):
 	                                   reward_weights=[10, 10],
 	                                   reward_type='weighted_idleness',
 	                                   model=args.model,
-	                                   seed=50000,
+	                                   seed=50001,
 	                                   int_observation=True,
 	                                   min_information_importance=1.0,
 	                                   )

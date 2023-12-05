@@ -262,7 +262,7 @@ def optimize_environment(environment):
 		                      reward=0,
 		                      max_depth=MAX_TREE_LEVEL)
 		
-		for _ in range(20):
+		for _ in range(30):
 			tree.do_rollout(root)
 		
 		# Compute the best action #
@@ -307,7 +307,7 @@ def experiment(arguments):
 	
 	print(f"Running benchmark {benchmark} with case {case}")
 	
-	env = DiscreteModelBasedPatrolling(n_agents=1,
+	env = DiscreteModelBasedPatrolling(n_agents=N,
 	                                   navigation_map=scenario_map,
 	                                   initial_positions=initial_positions,
 	                                   model_based=True,

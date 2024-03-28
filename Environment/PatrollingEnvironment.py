@@ -1,3 +1,7 @@
+import sys
+sys.path.append('..')
+sys.path.append('.')
+
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
@@ -732,7 +736,7 @@ if __name__ == "__main__":
 		from PathPlanners.NRRA import WanderingAgent
 		import time
 		
-		scenario_map = np.genfromtxt('Environment/Maps/map.txt', delimiter=' ')
+		scenario_map = np.genfromtxt('Maps/map.txt', delimiter=' ')
 		
 		N = 4
 		

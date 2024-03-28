@@ -79,6 +79,7 @@ class DuelingVisualNetwork(nn.Module):
 		self.out_dim = out_dim
 
 		# set common feature layer
+		#thanks to Sequential generates a commond structure made by the following things linked in this order
 		self.feature_layer = nn.Sequential(
 			FeatureExtractor(in_dim, number_of_features),
 			nn.Linear(number_of_features, 256),

@@ -1,3 +1,6 @@
+import sys
+sys.path.append('../..')
+
 import deap
 from deap import base, creator, tools, algorithms
 import numpy as np
@@ -5,7 +8,7 @@ from PathPlanners.VRP.graphRouting import PatrollingGraphRoutingProblem, mutatio
 from copy import deepcopy
 
 """ Optimization of a function with DEAP. """
-navigation_map = np.genfromtxt('Environment/Maps/map.txt', delimiter=' ')
+navigation_map = np.genfromtxt('../../Environment/Maps/map.txt', delimiter=' ')
 N_agents = 4
 initial_positions = np.array([10, 20, 30, 40])[:N_agents]
 scale = 4

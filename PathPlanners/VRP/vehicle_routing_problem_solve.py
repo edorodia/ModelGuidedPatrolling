@@ -19,11 +19,11 @@ def create_data_model():
 	"""Stores the data for the problem."""
 	data = {}
 	resolution = 4
-	nav_map = np.genfromtxt("Environment/Maps/map.txt", delimiter=' ')
+	nav_map = np.genfromtxt("../../Environment/Maps/map.txt", delimiter=' ')
 	X, Y = np.meshgrid(np.arange(resolution+1, nav_map.shape[0], step=resolution),
 	                   np.arange(resolution+1, nav_map.shape[1], step=resolution))
 	places = np.vstack((X.ravel(), Y.ravel())).T
-	
+	print("GUARDA QUA -> " + str(len(places)))
 	coordinates = []
 	for place in places:
 		if (nav_map[place[0] - 2:place[0] + 3, place[1] - 2:place[1] + 3] == 1).all():
@@ -132,7 +132,7 @@ def main():
 	# Create Routing Model.
 	routing = pywrapcp.RoutingModel(manager)
 	
-	# Create and register a transit callback.
+	# Create and register a transit callback. (function that calculates the distance between two nodes )
 	def distance_callback(from_index, to_index):
 		"""Returns the distance between the two nodes."""
 		# Convert from routing variable Index to distance matrix NodeIndex.
@@ -149,7 +149,7 @@ def main():
 	dimension_name = "Distance"
 	routing.AddDimension(
 			transit_callback_index,
-			0,  # no slack
+			0,  # no slack, no more than the value of constraint
 			1000,  # vehicle maximum travel distance
 			False,  # start cumul to zero
 			dimension_name,
@@ -173,11 +173,11 @@ def main():
 		print("No solution found !")
 	
 	paths = solution_to_paths(data, manager, routing, solution)
-	
+	print(paths)
 	
 	# Store the paths as pickle
 	import pickle
-	with open('PathPlanners/VRP/vrp_paths.pkl', 'wb') as f:
+	with open('vrp_paths.pkl', 'wb') as f:
 		pickle.dump(paths, f)
 	
 	# Plot the paths

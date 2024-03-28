@@ -17,7 +17,7 @@ class FeatureExtractor(nn.Module):
             nn.ReLU(),
             nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=1, padding=0),
             nn.ReLU(),
-            nn.Flatten()
+            nn.Flatten()    #brings all the channels to a single dimension vector which then will be input for the next layer
         )
 
         self.cnn_out_size = np.prod(self.cnn(torch.zeros(size=(1,
@@ -25,6 +25,7 @@ class FeatureExtractor(nn.Module):
                                                                obs_space_shape[1],
                                                                obs_space_shape[2]))).shape)
 
+        #fully connected layer input cnn_out_size and output -> the number of features
         self.linear = nn.Linear(int(self.cnn_out_size), num_of_features)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:

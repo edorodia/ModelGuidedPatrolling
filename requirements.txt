@@ -1,0 +1,14 @@
+algorithms
+gym
+matplotlib
+numpy
+pandas
+ortools
+scipy
+tqdm
+torch 
+torchvision 
+torchaudio
+scikit-learn
+deap
+optuna

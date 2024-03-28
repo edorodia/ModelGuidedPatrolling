@@ -41,6 +41,7 @@ class Vehicle:
 		self.steps = 0
 		self.influence_radius = influence_radius
 		
+		#Generates a new structures equal to the one given in input but filled only with 0
 		self.influence_mask = np.zeros_like(self.navigation_map)
 	
 	def reset(self):
@@ -83,8 +84,11 @@ class Vehicle:
 	def move(self, length, angle, action_type='discrete'):
 		# Take a step in given direction #
 		
+		#increases the steps counter
 		self.steps += 1
 		
+
+		#calculates the discrete direction x and y of the movement, the two data calculated will be summed to the actual position already given in x and y terms
 		direction = np.array([np.cos(angle), np.sin(angle)])
 		if action_type == 'discrete':
 			direction = np.round(direction).astype(int)
@@ -226,6 +230,8 @@ class CoordinatedFleet:
 				self.vehicles[vehicle_id].move_to_position(movements[vehicle_id])
 			
 			# Update the visited map #
+			"""it does it by taking the x and y data about the last waypoints explored for every vehicle and setting
+			that position to 1 in the visited_map"""
 			self.visited_map[
 				self.vehicles[vehicle_id].last_waypoints[:, 0].astype(int),
 				self.vehicles[vehicle_id].last_waypoints[:, 1].astype(int)] = 1
@@ -416,8 +422,10 @@ class DiscreteModelBasedPatrolling:
 		
 		""" Create the observation space """
 		
+		#creates a set of 8 integer values from 0 to 7
 		self.action_space = spaces.Discrete(8)
 		
+		#defines an observation_space made by a 2 dimensions matrix with 4 channels per cell
 		self.observation_space = spaces.Box(low=0, high=1,
 		                                    shape=(4, self.navigation_map.shape[0], self.navigation_map.shape[1]),
 		                                    dtype=np.uint8 if self.int_observation else np.float32)
@@ -527,9 +535,10 @@ class DiscreteModelBasedPatrolling:
 		return self.action_to_movement(np.random.randint(8))
 	
 	def step(self, actions: dict, action_type='discrete'):
-		
+		#increase the step counter by 1 unit
 		self.steps += 1
 		
+		#converts action integer number to movement (angle and length)
 		if action_type == 'discrete':
 			movements_orders = {key: self.action_to_movement(action) for key, action in actions.items()}
 		else:
@@ -576,6 +585,7 @@ class DiscreteModelBasedPatrolling:
 		if self.model_str == 'deepUnet' or self.model_str == 'vaeUnet':
 			self.model.update(sample_positions, values, self.fleet.visited_map)
 		else:
+			#print("Posizioni passate -> " + str(sample_positions))
 			self.model.update(sample_positions, values)
 	
 	def get_observations(self):
@@ -591,10 +601,13 @@ class DiscreteModelBasedPatrolling:
 		
 		observations = {}
 		
+		#for every vehicle
 		for vehicle_id in self.fleet.vehicles_ids:
 			
 			if self.int_observation:
 				
+				#saves the observation for that vehicle in the i-th position
+				#convert the values to values in the [0,255] range
 				observations[vehicle_id] = np.concatenate((
 						# (255 * self.navigation_map[np.newaxis]).astype(np.uint8),
 						(255 * self.fleet.get_vehicle_trajectory_map(observer=vehicle_id)[np.newaxis]).astype(
@@ -629,18 +642,26 @@ class DiscreteModelBasedPatrolling:
 			
 			# Compute the reward as the local changes for the agent. #
 			
+			#it is a single value returned
 			W = self.fleet.changes_idleness()  # Compute the idleness changes #
 			
 			for agent_id in self.fleet.vehicles_ids:
 				# The reward is the sum of the local changes in the agent's influence area + W #
 				
+				#information gain calculated with only the predictive model
 				information_gain = np.sum(self.fleet.vehicles[agent_id].influence_mask * (
 						self.model.predict() / np.sum(self.fleet.redundancy_mask())))
 				
+				#information gain calculated with the ground truth
 				true_information_gain = np.sum(self.fleet.vehicles[agent_id].influence_mask * (
 						self.ground_truth.read() / np.sum(self.fleet.redundancy_mask())))
 				
+				#every agent has its own reward calculated and based upon its influence in the total environment
+				#W is the change outside the actual influence of the agent, and this change is a difference so the higher it is the better
+				#the information gain is based on the value of the zone that the agent is measuring, the quantity of algae that is present, so that has to be higher too
+				#we need to maximize this reward
 				reward[agent_id] = W[agent_id] * (information_gain + self.min_information_importance) * 100.0
+				#the true reward is also calculated, the only difference is that true_information_gain is used instead of the previous one
 				self.true_reward[agent_id] = W[agent_id] * (
 						true_information_gain + self.min_information_importance) * 100.0
 		
@@ -668,15 +689,19 @@ class DiscreteModelBasedPatrolling:
 			self.d0 = self.axs[0].imshow(self.navigation_map, cmap='gray', vmin=0, vmax=1)
 			# self.d0 = self.axs[0].imshow(self.ground_truth.read(), cmap='gray', vmin=0, vmax=1)
 			self.axs[0].set_title('Navigation map')
+
 			self.d1 = self.axs[1].imshow(self.observations[list(self.fleet.vehicles_ids)[0]][0], cmap='gray', vmin=0,
 			                             vmax=1 if not self.int_observation else 255)
 			self.axs[1].set_title('Agent Position')
+
 			self.d2 = self.axs[2].imshow(self.observations[list(self.fleet.vehicles_ids)[0]][1], cmap='gray', vmin=0,
 			                             vmax=1 if not self.int_observation else 255)
 			self.axs[2].set_title('Fleet Position')
+
 			self.d3 = self.axs[3].imshow(self.observations[list(self.fleet.vehicles_ids)[0]][2], cmap='jet', vmin=0,
 			                             vmax=1 if not self.int_observation else 255)
 			self.axs[3].set_title('Idleness')
+			
 			self.d4 = self.axs[4].imshow(self.observations[list(self.fleet.vehicles_ids)[0]][3], cmap='jet', vmin=0,
 			                             vmax=1 if not self.int_observation else 255)
 			self.axs[4].set_title('Model')
@@ -703,6 +728,7 @@ class DiscreteModelBasedPatrolling:
 		y_real = self.ground_truth.read()[self.visitable_positions[:, 0], self.visitable_positions[:, 1]]
 		y_pred = self.model.predict()[self.visitable_positions[:, 0], self.visitable_positions[:, 1]]
 		
+		#questo è l'errore medio tra una cella reale e la sua controparte rilevata dagli agenti
 		mse_error = np.mean((y_real - y_pred) ** 2)
 		mae_error = np.mean(np.abs(y_real - y_pred))
 		normalization_value = np.sum(y_real)
@@ -728,7 +754,7 @@ class DiscreteModelBasedPatrolling:
 if __name__ == "__main__":
 	
 	try:
-		
+		#swtich to a more interactive rendering backend for the plots
 		plt.switch_backend('TkAgg')
 		
 		from PathPlanners.LawnMower import LawnMowerAgent
@@ -762,29 +788,34 @@ if __name__ == "__main__":
 		                                   int_observation=True,
 		                                   previous_exploration=True,
 		                                   pre_exploration_steps=50,
-		                                   pre_exploration_policy=preComputedExplorationPolicy("PathPlanners/VRP/vrp_paths.pkl", n_agents=N),
+		                                   pre_exploration_policy=preComputedExplorationPolicy("../PathPlanners/VRP/vrp_paths.pkl", n_agents=N),
 		                                   )
 		
 		print(env.max_num_steps)
 		env.eval = True
 		
 		for m in range(10):
-			
+
 			t0 = time.time()
 			env.reset()
+			#initializes the done array, with a flag for every agent
 			done = {i: False for i in range(N)}
 			
 			mse = []
 			rewards_list = []
 			
+			#generates the array of agents which follow the WanderingAgent model
 			agent = {i: WanderingAgent(world=scenario_map, number_of_actions=8, movement_length=4, seed=0) for i in
 			         range(N)}
 			
+			#while there is some agent which is not done yet
 			while not all(done.values()):
 				
 				# actions = {i: np.random.randint(0,8) for i in done.keys() if not done[i]}
+				#picks an action for every agent that is not yet done
 				actions = {i: agent[i].move(env.fleet.vehicles[i].position.astype(int)) for i in done.keys() if
 				           not done[i]}
+				#executes the actions in the environment
 				observations, rewards, done, info = env.step(actions)
 				
 				for i in range(N):
@@ -803,6 +834,7 @@ if __name__ == "__main__":
 				plt.pause(0.2)
 				mse.append(info['mse'])
 			
+			#prints the duration of the process
 			print("Time: ", time.time() - t0)
 			
 			plt.close()

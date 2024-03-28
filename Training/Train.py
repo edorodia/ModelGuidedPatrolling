@@ -38,6 +38,12 @@ initial_positions = np.array([[42, 32],
                               [43, 44],
                               [35, 45]])
 
+"""
+chooses the device to use for the training process
+-1 -> CPU
+0  -> GPU 1
+1  -> GPU 2
+"""
 device = 'cpu' if args.device == -1 else f'cuda:{args.device}'
 
 

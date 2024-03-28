@@ -22,29 +22,29 @@ class MultiAgentDuelingDQNAgent:
 	def __init__(
 			self,
 			env,
-			memory_size: int,
-			batch_size: int,
-			target_update: int,
-			soft_update: bool = False,
-			tau: float = 0.0001,
-			epsilon_values: List[float] = [1.0, 0.0],
+			memory_size: int,								
+			batch_size: int,								#number of experiences to put in a single mini-batch
+			target_update: int,								#number of mini-batches that need to occur to upgrade the target network
+			soft_update: bool = False,						#sets wheter to use the polyak update for the target network
+			tau: float = 0.0001,							#the polyak parameter
+			epsilon_values: List[float] = [1.0, 0.0],		#value of the e parameter for the exploration-exploitation balance, indicates where to start and where to end during the annealing
 			epsilon_interval: List[float] = [0.0, 1.0],
 			learning_starts: int = 10,
-			gamma: float = 0.99,
-			lr: float = 1e-4,
+			gamma: float = 0.99,							#discount factor
+			lr: float = 1e-4,								#learning rate
 			# PER parameters
-			alpha: float = 0.2,
-			beta: float = 0.6,
+			alpha: float = 0.2,								#gives more weight to prioritized events
+			beta: float = 0.6,								#controls the amount of importance weights assigned to experiences, the lower the parameter the less will importance be considered
 			prior_eps: float = 1e-6,
 			# NN parameters
-			number_of_features: int = 1024,
+			number_of_features: int = 1024,					#number of features after the visual extractor			
 			noisy: bool = False,
 			# Distributional parameters #
 			distributional: bool = False,
 			num_atoms: int = 51,
 			v_interval: Tuple[float, float] = (0.0, 100.0),
-			logdir=None,
-			log_name="Experiment",
+			logdir=None,									#directory where to save the log
+			log_name="Experiment",							#name of the log file
 			save_every=None,
 			train_every=1,
 			masked_actions=False,
@@ -117,16 +117,16 @@ class MultiAgentDuelingDQNAgent:
 		                                      obs_dtype=np.uint8 if env.int_observation else np.float32)
 		
 		""" Create the DQN and the DQN-Target (noisy if selected) """
-		if self.noisy:
+		if self.noisy:					#adds noise directly in the learning aiming to give space to exploration much more
 			self.dqn = NoisyDuelingVisualNetwork(obs_dim, action_dim, number_of_features).to(self.device)
 			self.dqn_target = NoisyDuelingVisualNetwork(obs_dim, action_dim, number_of_features).to(self.device)
-		elif self.distributional:
+		elif self.distributional:		#for every state in input outputs a distribution of the possible value for every action taken from that state
 			self.support = torch.linspace(self.v_interval[0], self.v_interval[1], self.num_atoms).to(self.device)
 			self.dqn = DistributionalVisualNetwork(obs_dim, action_dim, number_of_features, num_atoms, self.support).to(
 				self.device)
 			self.dqn_target = DistributionalVisualNetwork(obs_dim, action_dim, number_of_features, num_atoms,
 			                                              self.support).to(self.device)
-		else:
+		else:							#normal DuelingNetwork
 			self.dqn = DuelingVisualNetwork(obs_dim, action_dim, number_of_features).to(self.device)
 			self.dqn_target = DuelingVisualNetwork(obs_dim, action_dim, number_of_features).to(self.device)
 		
@@ -420,10 +420,11 @@ class MultiAgentDuelingDQNAgent:
 					elif episode % self.target_update == 0 and all(done.values()):
 						self._target_hard_update()
 			
+			#check if it has to do intermediate model saves
 			if self.save_every is not None:
 				if episode % self.save_every == 0:
 					self.save_model(name=f'Episode_{episode}_Policy.pth')
-			
+			#check if it has to log evaluations
 			if self.eval_every is not None:
 				if episode % self.eval_every == 0 and write_log:
 					mean_reward, mean_length, mean_error = self.evaluate_env(self.eval_episodes)

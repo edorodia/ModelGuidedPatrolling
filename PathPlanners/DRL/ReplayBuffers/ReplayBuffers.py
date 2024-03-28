@@ -7,6 +7,7 @@ import random
 class ReplayBuffer:
 	"""A simple numpy replay buffer."""
 
+	#n_step: indicates the number of experiences to aggregate
 	def __init__(self, obs_dim: Union[tuple, int, list], size: int, batch_size: int = 32, n_step: int = 1, gamma: float = 0.99, obs_dtype=np.float32):
 
 		self.obs_buf = np.zeros([size] + list(obs_dim), dtype=obs_dtype)
@@ -19,6 +20,7 @@ class ReplayBuffer:
 		self.ptr, self.size, = 0, 0
 
 		# for N-step Learning
+		#deque is a double-ended queue, similar to a list but way more optimized
 		self.n_step_buffer = deque(maxlen=n_step)
 		self.n_step = n_step
 		self.gamma = gamma
@@ -33,8 +35,9 @@ class ReplayBuffer:
 		if len(self.n_step_buffer) < self.n_step:
 			return ()
 
-		# make a n-step transition
+		# make a n-step transition, aggregates values of the last n_step experiences
 		rew, next_obs, done, info = self._get_n_step_info(self.n_step_buffer, self.gamma)
+		#obs and act related to the n_step experiences are all linked to the first experience
 		obs, act = self.n_step_buffer[0][:2]
 
 		self.obs_buf[self.ptr] = obs
@@ -78,8 +81,10 @@ class ReplayBuffer:
 	def _get_n_step_info(n_step_buffer: Deque, gamma: float) -> Tuple[np.int64, np.ndarray, bool, dict]:
 		"""Return n step rew, next_obs, and done."""
 		# info of the last transition
+		#extracts reward next_state, done flag of the last experience
 		rew, next_obs, done, info = n_step_buffer[-1][-4:]
 
+		#iters over all the transitions from the penultimate back to the first and upgrades the reward found with all the experience observed
 		for transition in reversed(list(n_step_buffer)[:-1]):
 			r, n_o, d = transition[-3:]
 			rew = r + gamma * rew * (1 - d)
@@ -90,7 +95,7 @@ class ReplayBuffer:
 	def __len__(self) -> int:
 		return self.size
 
-
+#tipically priority has to be assigned to experiences with an higher temporal difference, cause these are the ones that increase the efficiency of parameteres optimization
 class PrioritizedReplayBuffer(ReplayBuffer):
 	"""Prioritized Replay buffer.
 
@@ -181,7 +186,9 @@ class PrioritizedReplayBuffer(ReplayBuffer):
 	def _sample_proportional(self) -> List[int]:
 		"""Sample indices based on proportions."""
 		indices = []
+		#total weight of experiences in the buffer
 		p_total = self.sum_tree.sum(0, len(self) - 1)
+		#calculates the mean that should have the group of experiences taken
 		segment = p_total / self.batch_size
 
 		for i in range(self.batch_size):
@@ -192,10 +199,12 @@ class PrioritizedReplayBuffer(ReplayBuffer):
 			indices.append(idx)
 
 		return indices
-
+	
+	#beta is an hyperparameter used to regulate the emphasis on high-priority experiences, the higher is beta the higher is the emphasis on high-priority experiences
 	def _calculate_weight(self, idx: int, beta: float):
 		"""Calculate the weight of the experience at idx."""
 		# get max weight
+  		#this op is used to normalize the result
 		p_min = self.min_tree.min() / self.sum_tree.sum()
 		max_weight = (p_min * len(self)) ** (-beta)
 

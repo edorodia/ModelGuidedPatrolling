@@ -24,7 +24,7 @@ class Drone:
 	#drone_height: height of the drone during operational phase
 	#blur_data: boolean flag to set whether to use average on all the cells or to set differentiated values for every cell
 	def __init__(self,
-	             initial_positions: np.ndarray,
+	             initial_position: np.ndarray,
 	             navigation_map: np.ndarray,
 	             total_max_distance: float,
 				 influence_side: float,
@@ -33,7 +33,7 @@ class Drone:
 				 blur_data: bool = False):
 		
 		# Copy the initial positions #
-		self.initial_positions = np.atleast_2d(initial_positions).copy()
+		self.initial_position = np.atleast_2d(initial_position).copy()
 		self.navigation_map = navigation_map.copy()
 		
 		# Initialize positions
@@ -44,7 +44,12 @@ class Drone:
 		self.last_waypoints = []
 		self.steps = 0
 
-		self.influence_side = influence_side
+		#the influence_side has to be odd in order to have the drone always centered in a cell, the even values will be increased by 1
+		if influence_side % 2 == 0 :
+			self.influence_side = influence_side + 1
+		else :
+			self.influence_side = influence_side
+		
 		self.camera_fov_angle = camera_fov_angle
 		self.drone_height = drone_height
 		self.blur_data = blur_data
@@ -67,6 +72,7 @@ class Drone:
 		
 		self.steps = 0
 	
+	#draws influence mask of the drones using the influence_side
 	def _influence_mask(self):
 		""" Create a 0 matrix with the size of the navigation map and set to 1 a square centered in the position of
 		the drone of side size the number of units the ASV uses """

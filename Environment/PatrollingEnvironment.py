@@ -24,7 +24,7 @@ class Drone:
 	#drone_height: height of the drone during operational phase
 	#blur_data: boolean flag to set whether to use average on all the cells or to set differentiated values for every cell
 	def __init__(self,
-	             initial_position: np.ndarray,
+	             initial_positions: np.ndarray,
 	             navigation_map: np.ndarray,
 	             total_max_distance: float,
 				 influence_side: float,
@@ -33,7 +33,7 @@ class Drone:
 				 blur_data: bool = False):
 		
 		# Copy the initial positions #
-		self.initial_position = np.atleast_2d(initial_position).copy()
+		self.initial_positions = np.atleast_2d(initial_positions).copy()
 		self.navigation_map = navigation_map.copy()
 		
 		# Initialize positions
@@ -75,29 +75,24 @@ class Drone:
 	#draws influence mask of the drones using the influence_side
 	def _influence_mask(self):
 		""" Create a 0 matrix with the size of the navigation map and set to 1 a square centered in the position of
-		the drone of side size the number of units the ASV uses """
-		#at the moment the navigation map is made of 53x53meters cells
-		#the size of the square of the drone is calculated considering meters of the cells in the navigation_map used also by ASV
+		the drone of side size influence_side """
 		
 		influence_mask = np.zeros_like(self.navigation_map)
 		
-		# Set the influence mask to 1 in square centered where the drone is #
-		
-		# Compute the coordinates of the circle #
-		x, y = np.meshgrid(np.arange(0, influence_mask.shape[1]), np.arange(0, influence_mask.shape[0]))
-		x = x - self.position[1].astype(int)
-		y = y - self.position[0].astype(int)
-		
-		# Compute the distances from the center to the other points#
-		distance = np.sqrt(x ** 2 + y ** 2)
-		
-		# Set to 1 the points in the circle #
-		influence_mask[distance <= self.influence_radius] = 1
-		
+		offset = self.influence_side/2
+
+		x_start 	= int(np.ceil(self.position[1] - offset))
+		y_start 	= int(np.ceil(self.position[0] - offset))
+
+		x_end 		= int(np.floor(self.position[1] + offset))
+		y_end 		= int(np.floor(self.position[0] + offset))
+
+		influence_mask[y_start : y_end + 1, x_start : x_end + 1] = 1
+
 		return influence_mask
 	
 	#calculataes the side size (meters) of the square of surface covered by a single picture take by the drone using the law of sines (aka sine rule)
-	def _square_size(self):
+	def square_size(self):
 
 		return np.floor(2*((self.drone_height/np.sin(np.radians(180-90-(self.camera_fov_angle/2))))*np.sin(np.radians(self.camera_fov_angle/2))))
 

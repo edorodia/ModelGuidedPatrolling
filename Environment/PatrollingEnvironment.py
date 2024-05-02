@@ -18,6 +18,83 @@ from PathPlanners.dijkstra import Dijkstra
 
 from Environment.exploration_policies import preComputedExplorationPolicy
 
+class Drone:
+	#influence_side: defines the number of cells in the navigation map covered by a single picture of the drone (the equivalent of the influence_radius of an ASV)
+	#camera_fov_angle: FOV angle of the camera mounted on the drone
+	#drone_height: height of the drone during operational phase
+	#blur_data: boolean flag to set whether to use average on all the cells or to set differentiated values for every cell
+	def __init__(self,
+	             initial_positions: np.ndarray,
+	             navigation_map: np.ndarray,
+	             total_max_distance: float,
+				 influence_side: float,
+	             camera_fov_angle: float = 160,
+				 drone_height: float = 120,
+				 blur_data: bool = False):
+		
+		# Copy the initial positions #
+		self.initial_positions = np.atleast_2d(initial_positions).copy()
+		self.navigation_map = navigation_map.copy()
+		
+		# Initialize positions
+		self.position = None
+		self.total_max_distance = total_max_distance
+		self.distance = 0.0
+		self.waypoints = []
+		self.last_waypoints = []
+		self.steps = 0
+
+		self.influence_side = influence_side
+		self.camera_fov_angle = camera_fov_angle
+		self.drone_height = drone_height
+		self.blur_data = blur_data
+		
+		#Generates a new structures equal to the one given in input but filled only with 0
+		self.influence_mask = np.zeros_like(self.navigation_map)
+
+	def reset(self):
+		# Get a random position from the initial positions
+		self.position = self.initial_positions[np.random.randint(0, len(self.initial_positions))]
+		
+		# Reset the distance
+		self.distance = 0.0
+		
+		# Reset the path
+		self.waypoints = [self.position]
+		self.last_waypoints = [self.position]
+		
+		self.influence_mask = self._influence_mask()
+		
+		self.steps = 0
+	
+	def _influence_mask(self):
+		""" Create a 0 matrix with the size of the navigation map and set to 1 a square centered in the position of
+		the drone of side size the number of units the ASV uses """
+		#at the moment the navigation map is made of 53x53meters cells
+		#the size of the square of the drone is calculated considering meters of the cells in the navigation_map used also by ASV
+		
+		influence_mask = np.zeros_like(self.navigation_map)
+		
+		# Set the influence mask to 1 in square centered where the drone is #
+		
+		# Compute the coordinates of the circle #
+		x, y = np.meshgrid(np.arange(0, influence_mask.shape[1]), np.arange(0, influence_mask.shape[0]))
+		x = x - self.position[1].astype(int)
+		y = y - self.position[0].astype(int)
+		
+		# Compute the distances from the center to the other points#
+		distance = np.sqrt(x ** 2 + y ** 2)
+		
+		# Set to 1 the points in the circle #
+		influence_mask[distance <= self.influence_radius] = 1
+		
+		return influence_mask
+	
+	#calculataes the side size (meters) of the square of surface covered by a single picture take by the drone using the law of sines (aka sine rule)
+	def _square_size(self):
+
+		return np.floor(2*((self.drone_height/np.sin(np.radians(180-90-(self.camera_fov_angle/2))))*np.sin(np.radians(self.camera_fov_angle/2))))
+
 
 class Vehicle:
 	

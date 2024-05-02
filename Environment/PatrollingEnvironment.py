@@ -73,7 +73,7 @@ class Vehicle:
 		x = x - self.position[1].astype(int)
 		y = y - self.position[0].astype(int)
 		
-		# Compute the distance from the center #
+		# Compute the distances from the center to the other points#
 		distance = np.sqrt(x ** 2 + y ** 2)
 		
 		# Set to 1 the points in the circle #

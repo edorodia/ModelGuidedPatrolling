@@ -96,6 +96,51 @@ class Drone:
 
 		return np.floor(2*((self.drone_height/np.sin(np.radians(180-90-(self.camera_fov_angle/2))))*np.sin(np.radians(self.camera_fov_angle/2))))
 
+	#method that allows to move the drone to a cell on the lake given it's position in coordinates
+	def move(self, x:int, y:int):
+			# Take a step in a given position #
+			
+			#increases the steps counter
+			self.steps += 1
+			
+			next_target_position = np.array([y,x])
+			
+			#make a move to position targeted
+			#return "collision" if it's not part of the lake
+			#return "OK" if the position is part of the lake
+   
+			#cambia posizione dove si trova il drone
+			#mette la posizione nel last waypoints e nel waypoints	questi devono essere
+			#cambia la influence mask
+			#aggiunge la distanza percorsa (calcolata tramite euclide)
+   
+			collision = self.collision(next_target_position)
+			
+			if collision:
+				#puts in the last_waypoints the last valid waypoint reached
+				return "COLLISION"
+			else:
+				self.last_waypoints = []
+				self.distance += np.linalg.norm(next_target_position - self.position)
+				self.position = next_target_position
+				self.waypoints.append(next_target_position)
+				self.last_waypoints.append(next_target_position)
+				self.influence_mask = self._influence_mask()
+
+			return "OK"
+
+	def collision(self, position):
+			# Check if the drone would not go on a cell that is part of the lake #
+			c_position = position.copy().astype(int)
+			
+			in_bound = (0 <= int(c_position[0]) < self.navigation_map.shape[0] and 0 <= int(c_position[1]) <
+						self.navigation_map.shape[1])
+			
+			if not in_bound:
+				return True
+			else:
+				return not self.navigation_map[c_position[0], c_position[1]].astype(bool)
+		
 
 class Vehicle:
 	

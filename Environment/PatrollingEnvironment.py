@@ -93,26 +93,13 @@ class Drone:
 	
 	#calculataes the side size (meters) of the square of surface covered by a single picture take by the drone using the law of sines (aka sine rule)
 	def square_size(self):
-
 		return np.floor(2*((self.drone_height/np.sin(np.radians(180-90-(self.camera_fov_angle/2))))*np.sin(np.radians(self.camera_fov_angle/2))))
 
 	#method that allows to move the drone to a cell on the lake given it's position in coordinates
-	def move(self, x:int, y:int):
-			# Take a step in a given position #
-			
-			#increases the steps counter
+	def move(self, x:int, y:int):			
 			self.steps += 1
 			
 			next_target_position = np.array([y,x])
-			
-			#make a move to position targeted
-			#return "collision" if it's not part of the lake
-			#return "OK" if the position is part of the lake
-   
-			#cambia posizione dove si trova il drone
-			#mette la posizione nel last waypoints e nel waypoints	questi devono essere
-			#cambia la influence mask
-			#aggiunge la distanza percorsa (calcolata tramite euclide)
    
 			collision = self.collision(next_target_position)
 			
@@ -130,7 +117,7 @@ class Drone:
 			return "OK"
 
 	def collision(self, position):
-			# Check if the drone would not go on a cell that is part of the lake #
+			# Check if the drone can or cannot go to position #
 			c_position = position.copy().astype(int)
 			
 			in_bound = (0 <= int(c_position[0]) < self.navigation_map.shape[0] and 0 <= int(c_position[1]) <

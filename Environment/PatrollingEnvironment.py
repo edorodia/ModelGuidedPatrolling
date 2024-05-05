@@ -18,6 +18,7 @@ from PathPlanners.dijkstra import Dijkstra
 
 from Environment.exploration_policies import preComputedExplorationPolicy
 
+
 class Drone:
 	#influence_side: defines the number of cells in the navigation map covered by a single picture of the drone (the equivalent of the influence_radius of an ASV)
 	#camera_fov_angle: FOV angle of the camera mounted on the drone
@@ -45,6 +46,7 @@ class Drone:
 		self.steps = 0
 
 		#the influence_side has to be odd in order to have the drone always centered in a cell, the even values will be increased by 1
+		influence_side = np.floor(influence_side)
 		if influence_side % 2 == 0 :
 			self.influence_side = influence_side + 1
 		else :
@@ -127,7 +129,7 @@ class Drone:
 				return True
 			else:
 				return not self.navigation_map[c_position[0], c_position[1]].astype(bool)
-		
+
 
 class Vehicle:
 	
@@ -450,6 +452,41 @@ class CoordinatedFleet:
 	def get_last_waypoints(self):
 		""" Return the last waypoints of the vehicles """
 		return np.vstack([vehicle.last_waypoints for vehicle in self.vehicles])
+
+
+class CoordinatedHetFleet(CoordinatedFleet):
+	def __init__(self,
+	             n_vehicles: int,							
+	             initial_surface_positions: np.ndarray,		
+	             navigation_map: np.ndarray,				
+	             total_max_surface_distance: float,			
+	             influence_radius: float,					
+	             forgetting_factor: float,					
+				 initial_air_positions: np.ndarray,			
+				 total_max_air_distance: float,				
+				 influence_side: float,						
+	             camera_fov_angle: float,					
+				 drone_height: float,						
+				 blur_data: bool,							
+				 n_drones: int = 1):						
+
+		super.__init__(n_vehicles, 
+				       initial_surface_positions,
+					   navigation_map,
+					   total_max_surface_distance,
+					   influence_radius,
+					   forgetting_factor)
+
+		# Create the aerial fleet #
+		self.drones = [Drone(initial_positions=initial_air_positions[i],
+		                         navigation_map=navigation_map,
+		                         total_max_distance=total_max_air_distance,
+		                         influence_side=influence_side,
+								 camera_fov_angle=camera_fov_angle,
+								 drone_height=drone_height,
+								 blur_data=blur_data) for i in range(n_drones)]
+		
+		self.drones_ids = set(range(n_drones))
 
 
 class DiscreteModelBasedPatrolling:

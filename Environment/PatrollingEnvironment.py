@@ -477,6 +477,12 @@ class CoordinatedHetFleet(CoordinatedFleet):
 					   influence_radius,
 					   forgetting_factor)
 
+		self.n_drones = n_drones
+
+		self.idleness_air_map = np.ones_like(self.navigation_map)
+		self.idleness_air_map_ = np.ones_like(self.navigation_map)
+		self.changes_in_air_idleness = np.zeros_like(self.navigation_map)
+
 		# Create the aerial fleet #
 		self.drones = [Drone(initial_positions=initial_air_positions[i],
 		                         navigation_map=navigation_map,
@@ -487,6 +493,63 @@ class CoordinatedHetFleet(CoordinatedFleet):
 								 blur_data=blur_data) for i in range(n_drones)]
 		
 		self.drones_ids = set(range(n_drones))
+
+	def reset(self):
+		super.reset()
+
+		self.drones_ids = set(range(self.n_drones))
+		self.visited_air_map = np.zeros_like(self.navigation_map)
+		for drone in self.drones:
+			drone.reset()
+			self.visited_air_map[drone.position[0].astype(int), drone.position[1].astype(int)] = 1
+		
+		self.idleness_drone_map = np.ones_like(self.navigation_map)
+		self.idleness_drone_map_ = np.ones_like(self.navigation_map)
+
+	def move_ASVs(self, movements, action_type='discrete'):
+		super.move(movements, action_type)
+	
+	def move_Drones(self, to_positions):
+		# Set the flags for inactive drones #
+		remove_ids = []
+		for drone_id in self.drones_ids:
+			if self.drones[drone_id].distance > self.total_max_distance:
+				remove_ids.append(drone_id)
+		
+		# Remove the inactive drones #
+		for drone_id in remove_ids:
+			self.drones_ids.remove(drone_id)
+		
+		# Move the drones #
+		for drone_id in self.drones_ids:
+			# Move the drone_id drone to the position in its index #
+			self.drones[drone_id].move(to_positions[drone_id][1], to_positions[drone_id][0])
+			
+			# Update the visited map #
+			"""it does it by taking the x and y data about the last waypoints explored for every vehicle and setting
+			that position to 1 in the visited_map"""
+			self.visited_air_map[
+				self.drones[drone_id].last_waypoints[:, 0].astype(int),
+				self.drones[drone_id].last_waypoints[:, 1].astype(int)] = 1
+		
+		self.update_idleness_air_map()
+	
+	def update_idleness_air_map(self):
+		""" Update the idleness air map """
+		
+		# Copy the previous idleness air map #
+		self.idleness_air_map_ = self.idleness_air_map.copy()
+		
+		# Update the idleness air map #
+		self.idleness_air_map += self.forgetting_factor # Increment the idleness map everywhere
+		
+		self.idleness_air_map = np.clip(self.idleness_air_map, 0, 1)  # Clip the idleness map
+		
+		# Reset the idleness map in the vehicles influence area #
+		for drone_id in self.drones_ids:
+			self.idleness_air_map[np.where(self.drones[drone_id].influence_mask != 0)] = 0
+		
+		self.idleness_air_map = self.idleness_air_map * self.navigation_map
 
 
 class DiscreteModelBasedPatrolling:

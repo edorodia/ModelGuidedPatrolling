@@ -473,7 +473,7 @@ class CoordinatedHetFleet(CoordinatedFleet):
 				 drone_direct_idleness_influece: bool = False,					
 				 n_drones: int = 1):						
 
-		super.__init__(n_vehicles, 
+		super().__init__(n_vehicles, 
 				       initial_surface_positions,
 					   navigation_map,
 					   total_max_surface_distance,
@@ -504,7 +504,7 @@ class CoordinatedHetFleet(CoordinatedFleet):
 		self.drones_ids = set(range(n_drones))
 
 	def reset(self):
-		super.reset()
+		super().reset()
 
 		self.drones_ids = set(range(self.n_drones))
 		self.visited_air_map = np.zeros_like(self.navigation_map)
@@ -516,7 +516,7 @@ class CoordinatedHetFleet(CoordinatedFleet):
 		self.idleness_air_map_ = np.ones_like(self.navigation_map)
 
 	def move_ASVs(self, movements, action_type='discrete'):
-		super.move(movements, action_type)
+		super().move(movements, action_type)
 		self.update_idleness_map(True)
 	
 	def move_Drones(self, to_positions):
@@ -594,6 +594,86 @@ class CoordinatedHetFleet(CoordinatedFleet):
 				self.idleness_air_map[np.where(self.drones[drone_id].influence_mask != 0)] = 0
 			
 			self.idleness_air_map = self.idleness_air_map * self.navigation_map
+
+	def get_ASV_position_map(self, observer: int):
+		return super().get_vehicle_position_map(observer)
+	
+	def get_drone_position_map(self, observer: int):
+		""" Get the map with the observed position of the drone """
+		
+		position_map = np.zeros_like(self.navigation_map)
+		position_map[
+			self.drones[observer].position[0].astype(int), self.drones[observer].position[1].astype(int)] = 1
+		
+		return position_map
+
+	def get_ASV_trajectory_map(self, observer: int):
+		return super().get_vehicle_trajectory_map(observer)
+	
+	def get_drone_trajectory_map(self, observer: int):
+		position_map = np.zeros_like(self.navigation_map)
+		
+		waypoints = np.asarray(self.drones[observer].waypoints)
+		
+		position_map[waypoints[-10:, 0].astype(int), waypoints[-10:, 1].astype(int)] = np.linspace(0, 1,
+		                                                                                           len(waypoints[
+		                                                                                               -10:]),
+		                                                                                           endpoint=True)
+		
+		return position_map
+		
+	def get_ASV_fleet_position_map(self, observers: int):
+		super().get_fleet_position_map(observers)
+	
+	def get_drone_fleet_position_map(self, observers: int):
+		""" Get the map with the observed position of the drones """
+		
+		observers = np.atleast_1d(observers)
+		position_map = np.zeros_like(self.navigation_map)
+		
+		for drone_id in self.drones_ids:
+			
+			if drone_id in observers:
+				continue
+			
+			position_map[
+				self.drones[drone_id].position[0].astype(int), self.drones[drone_id].position[1].astype(int)] = 1
+		
+		return position_map
+
+	def get_ASV_positions(self):
+		super().get_positions()
+	
+	def get_drone_positions(self):
+		""" Return an array with the XY positions of the active drones """
+		return np.array([self.drones[drone_id].position for drone_id in self.drones_ids])
+
+	def redundancy_ASV_mask(self):
+		super().redundancy_mask()
+
+	def redundancy_drone_mask(self):
+		# Sum all the influence masks #
+		# Generates an array of influence masks and sums all of them together (the function sums all the rows with same index together)
+		return np.array([self.drones[i].influence_mask for i in self.drones_ids]).sum(axis=0)
+
+	def changes_ASV_idleness(self):
+		return super().changes_idleness()
+	
+	def changes_air_idleness(self):
+		# Outputs the changes in the idleness for every drone considering the redundancy and it's influence #
+		# Compute the changes in air idleness #
+		net_air_change = np.abs(self.idleness_air_map - self.idleness_air_map_)
+		
+		# Compute the changes for every vehicle by vehicle mask multiplication #
+		return {i: np.sum(self.drones[i].influence_mask * (net_air_change / np.sum(self.redundancy_drone_mask()))) for i in
+		        self.drones_ids}
+
+	def get_last_ASV_waypoints(self):
+		super().get_last_waypoints()
+	
+	def get_last_drone_waypoints(self):
+		""" Return the last waypoints of the drones """
+		return np.vstack([drone.last_waypoints for drone in self.drones])
 
 
 class DiscreteModelBasedPatrolling:

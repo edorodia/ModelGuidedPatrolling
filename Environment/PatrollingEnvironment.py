@@ -62,7 +62,7 @@ class Drone:
 	def reset(self):
 		# Get a random position from the initial positions
 		self.position = self.initial_positions[np.random.randint(0, len(self.initial_positions))]
-		
+
 		# Reset the distance
 		self.distance = 0.0
 		
@@ -115,7 +115,7 @@ class Drone:
 				self.waypoints.append(next_target_position)
 				self.last_waypoints.append(next_target_position)
 				self.influence_mask = self._influence_mask()
-
+				self.last_waypoints = np.asarray(self.last_waypoints)
 			return "OK"
 
 	def collision(self, position):
@@ -193,6 +193,7 @@ class Vehicle:
 		
 		return influence_mask
 	
+	#requires the angle expressed in radians
 	def move(self, length, angle, action_type='discrete'):
 		# Take a step in given direction #
 		
@@ -642,7 +643,7 @@ class CoordinatedHetFleet(CoordinatedFleet):
 		return position_map
 
 	def get_ASV_positions(self):
-		super().get_positions()
+		return super().get_positions()
 	
 	def get_drone_positions(self):
 		""" Return an array with the XY positions of the active drones """

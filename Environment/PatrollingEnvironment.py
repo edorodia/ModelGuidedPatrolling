@@ -518,7 +518,6 @@ class CoordinatedHetFleet(CoordinatedFleet):
 
 	def move_ASVs(self, movements, action_type='discrete'):
 		super().move(movements, action_type)
-		self.update_idleness_map(True)
 	
 	def move_Drones(self, to_positions):
 		# Set the flags for inactive drones #
@@ -543,58 +542,54 @@ class CoordinatedHetFleet(CoordinatedFleet):
 				self.drones[drone_id].last_waypoints[:, 0].astype(int),
 				self.drones[drone_id].last_waypoints[:, 1].astype(int)] = 1
 		
-		self.update_idleness_map(False)
+		self.update_idleness_map_drone()
 
-	"""
-	ASV_or_Drone = True -> 	ASV made a move
-	ASV_or_Drone = False -> Drone made a move
-	"""
-	def update_idleness_map(self, ASV_or_Drone):
-		# ASV made a move #
-		if ASV_or_Drone :
-			""" ASV's idleness has to be reset in the ASV influence area """
-			# this is done in the super's .move method #
-			
-			""" Drone's idleness has to be reset in the ASV influence area """
-			# Copy the previous idleness air map #
-			self.idleness_air_map_ = self.idleness_air_map.copy()
-			
-			# Reset the idleness air map in the vehicles influence area #
-			for vehicle_id in self.vehicles_ids:
-				self.idleness_air_map[np.where(self.vehicles[vehicle_id].influence_mask != 0)] = 0
-			
-			self.idleness_air_map = self.idleness_air_map * self.navigation_map
+	""" the update idleness function when ASVs are moved """
+	def update_idleness_map(self):
+		""" ASV's idleness has to be reset in the ASV influence area """
+		# this is done in the super's .move method #
+		super().update_idleness_map()
 		
-		# Drone made a move #
-		else :
-			""" ASV's idleness has to be reduced in the influence area of the 
+		""" Drone's idleness has to be reset in the ASV influence area """
+		# Copy the previous idleness air map #
+		self.idleness_air_map_ = self.idleness_air_map.copy()
+		
+		# Reset the idleness air map in the vehicles influence area #
+		for vehicle_id in self.vehicles_ids:
+			self.idleness_air_map[np.where(self.vehicles[vehicle_id].influence_mask != 0)] = 0
+		
+		self.idleness_air_map = self.idleness_air_map * self.navigation_map
+
+	""" the update idleness function when drone is moved """
+	def update_idleness_map_drone(self):
+		""" ASV's idleness has to be reduced in the influence area of the 
 			drone if the flag drone_direct_idleness_influence is set to true """
-			if self.drone_direct_idleness_influece :
-				# if the drone has direct influence on ASV idleness then do this #
-				# Copy the previous idleness air map #
-				self.idleness_map_ = self.idleness_map.copy()
-				
-				# Reset the idleness air map in the vehicles influence area #
-				for drone_id in self.drones_ids:
-					self.idleness_map[np.where(self.drones[drone_id].influence_mask != 0)] -= self.drone_idleness_influence
-				
-				self.idleness_map = self.idleness_map * self.navigation_map
-
-
-			""" Drone's idleness has to be reset to 0 in the Drone influence area """
+		if self.drone_direct_idleness_influece :
+			# if the drone has direct influence on ASV idleness then do this #
 			# Copy the previous idleness air map #
-			self.idleness_air_map_ = self.idleness_air_map.copy()
-			
-			# Update the idleness air map #
-			self.idleness_air_map += self.air_forgetting_factor # Increment the idleness air map everywhere
-			
-			self.idleness_air_map = np.clip(self.idleness_air_map, 0, 1)  # Clip the idleness map
+			self.idleness_map_ = self.idleness_map.copy()
 			
 			# Reset the idleness air map in the vehicles influence area #
 			for drone_id in self.drones_ids:
-				self.idleness_air_map[np.where(self.drones[drone_id].influence_mask != 0)] = 0
+				self.idleness_map[np.where(self.drones[drone_id].influence_mask != 0)] -= self.drone_idleness_influence
 			
-			self.idleness_air_map = self.idleness_air_map * self.navigation_map
+			self.idleness_map = self.idleness_map * self.navigation_map
+
+
+		""" Drone's idleness has to be reset to 0 in the Drone influence area """
+		# Copy the previous idleness air map #
+		self.idleness_air_map_ = self.idleness_air_map.copy()
+		
+		# Update the idleness air map #
+		self.idleness_air_map += self.air_forgetting_factor # Increment the idleness air map everywhere
+		
+		self.idleness_air_map = np.clip(self.idleness_air_map, 0, 1)  # Clip the idleness map
+		
+		# Reset the idleness air map in the vehicles influence area #
+		for drone_id in self.drones_ids:
+			self.idleness_air_map[np.where(self.drones[drone_id].influence_mask != 0)] = 0
+		
+		self.idleness_air_map = self.idleness_air_map * self.navigation_map
 
 	def get_ASV_position_map(self, observer: int):
 		return super().get_vehicle_position_map(observer)
@@ -675,6 +670,42 @@ class CoordinatedHetFleet(CoordinatedFleet):
 	def get_last_drone_waypoints(self):
 		""" Return the last waypoints of the drones """
 		return np.vstack([drone.last_waypoints for drone in self.drones])
+
+	def render(self):
+		
+		if self.fig is None:
+			
+			#self.fig -> the entire window with all the figures
+			#self.ax -> single plotting area, the subplot
+			self.fig, self.ax = plt.subplots(1, 1)
+			
+			self.ax_pos = []
+			self.ax_pos_drone = []
+			
+			self.ax.imshow(self.navigation_map, cmap='gray', vmin=0, vmax=1)
+			
+			# Plot all vehicles' positions #
+			for vehicle in self.vehicles:
+				self.ax_pos.append(self.ax.plot(vehicle.position[1], vehicle.position[0], 'ro')[0])
+			
+			for drone in self.drones:
+				self.ax_pos_drone.append(self.ax.plot(drone.position[1], drone.position[0], 'bo')[0])
+			
+			plt.show(block=False)
+		else:
+			
+			# Update the positions #
+			for vehicle_id in self.vehicles_ids:
+				self.ax_pos[vehicle_id].set_xdata([self.vehicles[vehicle_id].position[1]])
+				self.ax_pos[vehicle_id].set_ydata([self.vehicles[vehicle_id].position[0]])
+			
+			for drone_id in self.drones_ids:
+				self.ax_pos_drone[drone_id].set_xdata([self.drones[drone_id].position[1]])
+				self.ax_pos_drone[drone_id].set_ydata([self.drones[drone_id].position[0]])
+		
+		self.fig.canvas.draw()
+		self.fig.canvas.flush_events()
+		plt.pause(0.1)
 
 
 class DiscreteModelBasedPatrolling:
@@ -1128,9 +1159,7 @@ if __name__ == "__main__":
 		
 		print(env.max_num_steps)
 		env.eval = True
-		
 		for m in range(10):
-
 			t0 = time.time()
 			env.reset()
 			#initializes the done array, with a flag for every agent
@@ -1173,7 +1202,6 @@ if __name__ == "__main__":
 			print("Time: ", time.time() - t0)
 			
 			plt.close()
-			
 			plt.figure()
 			plt.plot(mse)
 			plt.show()

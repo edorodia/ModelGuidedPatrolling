@@ -29,9 +29,9 @@ class Drone:
 	             navigation_map: np.ndarray,
 	             total_max_distance: float,
 				 influence_side: float,
-	             camera_fov_angle: float = 160,
-				 drone_height: float = 120,
-				 blur_data: bool = False):
+	             camera_fov_angle: float,
+				 drone_height: float,
+				 blur_data: bool):
 		
 		# Copy the initial positions #
 		self.initial_positions = np.atleast_2d(initial_positions).copy()
@@ -471,8 +471,8 @@ class CoordinatedHetFleet(CoordinatedFleet):
 				 drone_height: float,						
 				 blur_data: bool,	
 				 drone_idleness_influence: float,		
-				 drone_direct_idleness_influece: bool = False,					
-				 n_drones: int = 1):						
+				 drone_direct_idleness_influece: bool,					
+				 n_drones: int):						
 
 		super().__init__(n_vehicles, 
 				       initial_surface_positions,
@@ -1116,6 +1116,96 @@ class DiscreteModelBasedPatrolling:
 		        'true_reward':            true_reward,
 		        }
 
+
+class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
+
+	def __init__(self,
+				 initial_air_positions: np.ndarray,					#
+				 max_air_distance: float,							#
+				 influence_side: float,								#
+				 forgetting_air_factor: float,						#		
+				 drone_idleness_influence : float,					#
+	             n_agents: int,
+	             navigation_map: np.ndarray,
+	             initial_positions: np.ndarray,
+	             model_based: bool,
+	             movement_length: int,
+	             resolution: int,
+	             max_distance: float,
+	             influence_radius: float,
+	             forgetting_factor: float = 0.01,
+	             reward_type='weighted_importance',
+	             reward_weights=(1, 1),
+	             benchmark: str = 'algae_bloom',
+	             model: str = 'miopic',
+	             dynamic: bool = True,
+	             seed: int = 0,
+	             random_gt: bool = True,
+	             int_observation: bool = False,
+	             min_information_importance: float = 1.0,
+	             previous_exploration=False,
+	             pre_exploration_policy=None,
+	             pre_exploration_steps=0,
+				 camera_fov_angle: float = 160,						#
+				 drone_height: float = 120,							#
+				 n_drones: int = 1,									#
+				 drone_direct_idleness_influece : bool = False,		#
+				 blur_data: bool = False							#
+	             ):
+		
+		super.__init__(n_agents,
+				 		navigation_map,
+						initial_positions,
+						model_based,
+						movement_length,
+						resolution,
+						max_distance,
+						influence_radius,
+						forgetting_factor,
+						reward_type,
+						reward_weights,
+						benchmark,
+						model,
+						dynamic,
+						seed,
+						random_gt,
+						int_observation,
+						min_information_importance,
+						previous_exploration,
+						pre_exploration_policy,
+						pre_exploration_steps)
+		
+		""" Copy attributes """
+		self.n_drones = n_drones
+		self.initial_air_positions = initial_air_positions
+		self.max_air_distance = max_air_distance
+		self.influence_side = influence_side
+		self.forgetting_air_factor = forgetting_air_factor
+		self.camera_fov_angle = camera_fov_angle
+		self.drone_height = drone_height
+		self.blur_data = blur_data
+		self.drone_idleness_influence = drone_idleness_influence
+		self.drone_direct_idleness_influence = drone_direct_idleness_influece
+
+		""" Create the fleet """		
+		self.fleet = CoordinatedHetFleet(n_vehicles = self.n_agents,							
+										initial_surface_positions = self.initial_positions,		
+										navigation_map = self.navigation_map,				
+										total_max_surface_distance = self.max_distance,			
+										influence_radius = self.influence_radius,					
+										forgetting_factor = self.forgetting_factor,	
+										air_forgetting_factor = self.forgetting_air_factor,	
+										initial_air_positions = self.initial_air_positions,			
+										total_max_air_distance = self.max_air_distance,				
+										influence_side = self.influence_side,						
+										camera_fov_angle = self.camera_fov_angle,					
+										drone_height = self.drone_height,						
+										blur_data = self.blur_data,	
+										drone_idleness_influence = self.drone_idleness_influence,		
+										drone_direct_idleness_influece = self.drone_direct_idleness_influence,					
+										n_drones = self.n_drones)		
+
+	
 
 if __name__ == "__main__":
 	

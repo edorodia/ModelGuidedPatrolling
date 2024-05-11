@@ -792,6 +792,9 @@ class DiscreteModelBasedPatrolling:
 		self.action_space = spaces.Discrete(8)
 		
 		#defines an observation_space made by a 2 dimensions matrix with 4 channels per cell
+		"""
+		Spaces are crucially used in Gym to define the format of valid actions and observations
+		"""
 		self.observation_space = spaces.Box(low=0, high=1,
 		                                    shape=(4, self.navigation_map.shape[0], self.navigation_map.shape[1]),
 		                                    dtype=np.uint8 if self.int_observation else np.float32)
@@ -1153,7 +1156,7 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 				 blur_data: bool = False							#
 	             ):
 		
-		super.__init__(n_agents,
+		super().__init__(n_agents,
 				 		navigation_map,
 						initial_positions,
 						model_based,
@@ -1205,7 +1208,40 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 										drone_direct_idleness_influece = self.drone_direct_idleness_influence,					
 										n_drones = self.n_drones)		
 
+	def get_ASV_positions(self):
+		return self.fleet.get_ASV_positions()
 	
+	def get_drone_positions(self):
+		return self.fleet.get_drone_positions()
+	
+	def get_ASV_positions_dict(self):
+		super().get_positions_dict()
+	
+	def get_drone_positions_dict(self):
+		return {drone_id: position for drone_id, position in zip(self.fleet.drones_ids, self.fleet.get_drone_positions())}
+
+	def reset(self):
+		super().reset()
+
+	def action_to_movement_ASV(self, action:int):
+		super().action_to_movement(action)
+	
+	def random_ASV_action(self):
+		super().random_action()
+
+	def random_drone_action(self):
+		#extracts a random position from the possible ones, which are the ones where there is the lake, and there isn't another agent
+		possible_positions = np.argwhere(self.navigation_map == 1)
+
+		#remove positions where the drones are placed
+		for id_drone in self.fleet.drones_ids:
+			value_to_remove = self.fleet.drones[id_drone].position
+			mask = np.any(possible_positions != value_to_remove, axis = 1)
+			possible_positions = possible_positions[mask]
+		
+		random_position = np.random.randint(len(possible_positions))
+		return possible_positions[random_position]
+
 
 if __name__ == "__main__":
 	

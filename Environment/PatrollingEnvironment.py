@@ -928,6 +928,7 @@ class DiscreteModelBasedPatrolling:
 		# Get the done flag #
 		done = self.get_done()
 		
+		#if the dynamic flag is set calls for a step in the ground truth
 		if self.dynamic:
 			self.ground_truth.step()
 		
@@ -1001,7 +1002,7 @@ class DiscreteModelBasedPatrolling:
 		return self.observations
 	
 	def get_rewards(self):
-		""" The reward is selected dependign on the reward type """
+		""" The reward is selected depending on the reward type """
 		
 		reward = {}
 		
@@ -1036,7 +1037,7 @@ class DiscreteModelBasedPatrolling:
 		
 		else:
 			raise NotImplementedError('Unknown reward type')
-		
+		print(reward)
 		return reward
 	
 	def get_done(self):
@@ -1208,6 +1209,9 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 										drone_direct_idleness_influece = self.drone_direct_idleness_influence,					
 										n_drones = self.n_drones)		
 
+		#array of possible drone destinations
+		self.possible_positions = np.argwhere(self.navigation_map == 1)
+
 	def get_ASV_positions(self):
 		return self.fleet.get_ASV_positions()
 	
@@ -1229,18 +1233,47 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 	def random_ASV_action(self):
 		super().random_action()
 
-	def random_drone_action(self):
-		#extracts a random position from the possible ones, which are the ones where there is the lake, and there isn't another agent
-		possible_positions = np.argwhere(self.navigation_map == 1)
+	"""
+	private method to check if the position picked is already occupied by a drone
+	"""
+	def _check_drone_presence(self, position: np.array):
+		for drone_id in self.fleet.drones_ids:
+			if np.array_equal(self.fleet.drones[drone_id].position, position):
+				return True
+		return False 
 
-		#remove positions where the drones are placed
-		for id_drone in self.fleet.drones_ids:
-			value_to_remove = self.fleet.drones[id_drone].position
-			mask = np.any(possible_positions != value_to_remove, axis = 1)
-			possible_positions = possible_positions[mask]
+	"""
+	returns the size of the self.possible_positions - 1 which is also the maximum action number
+	"""
+	def max_action_id_drone(self):
+		return len(self.possible_positions) - 1
+
+	"""
+	returns a random feasible position for the next destination of the drone
+	"""
+	def random_drone_action(self):
+
+		random_i = np.random.randint(len(self.possible_positions))
+		while self._check_drone_presence(self.possible_positions[random_i]):
+			random_i = np.random.randint(len(self.possible_positions))
 		
-		random_position = np.random.randint(len(possible_positions))
-		return possible_positions[random_position]
+		return random_i
+
+	"""
+	returns the position which corresponds to the action number in input,
+	we start to count action from the first cell to have a 1 value in top left corner and keep counting following the rows
+	"""
+	def action_to_position_drone(self, action: int):
+		return (self.possible_positions[action])
+	
+	"""
+	returns the number of the action knowing the destination position of the drone's next move
+	"""
+	def position_to_action_drone(self, position: np.array):
+		for idx, element in enumerate(self.possible_positions):
+			if(np.array_equal(position, element)):
+				return idx
+		return idx
 
 
 if __name__ == "__main__":

@@ -645,24 +645,46 @@ class CoordinatedHetFleet(CoordinatedFleet):
 		return np.array([self.drones[drone_id].position for drone_id in self.drones_ids])
 
 	def redundancy_ASV_mask(self):
-		super().redundancy_mask()
+		# Sum all the influence masks #
+		# to avoid further problems the zones with a 0 are replaced with a 1 this doesn't change anything since influence masks will mask the values to not care about
+		
+		#redundancy_mask = np.array([self.vehicles[i].influence_mask for i in self.vehicles_ids]).sum(axis=0)
+		#redundancy_mask[redundancy_mask == 0] = 1
+		#return redundancy_mask
+
+		return np.array([self.vehicles[i].influence_mask for i in self.vehicles_ids]).sum(axis=0)
 
 	def redundancy_drone_mask(self):
 		# Sum all the influence masks #
 		# Generates an array of influence masks and sums all of them together (the function sums all the rows with same index together)
-		return np.array([self.drones[i].influence_mask for i in self.drones_ids]).sum(axis=0)
+		# to avoid further problems the zones with a 0 are replaced with a 1 this doesn't change anything since influence masks will mask the values to not care about
+		
+		#redundancy_mask = np.array([self.drones[i].influence_mask for i in self.drones_ids]).sum(axis=0)
+		#redundancy_mask[redundancy_mask == 0] = 1
+		#return redundancy_mask
+
+		return np.array([self.vehicles[i].influence_mask for i in self.vehicles_ids]).sum(axis=0)
 
 	def changes_ASV_idleness(self):
-		return super().changes_idleness()
+		# Compute the changes in idleness #
+		net_change = np.abs(self.idleness_map - self.idleness_map_)
+		
+		# Compute the changes for every vehicle by vehicle mask multiplication #
+		#return {i: np.sum(self.vehicles[i].influence_mask * (net_change / self.redundancy_mask())) for i in
+		#        self.vehicles_ids}
+
+		return {i: np.sum(self.vehicles[i].influence_mask * (net_change / np.sum(self.redundancy_ASV_mask()))) for i in
+		        self.vehicles_ids}
 	
 	def changes_air_idleness(self):
-		# Outputs the changes in the idleness for every drone considering the redundancy and it's influence #
 		# Compute the changes in air idleness #
 		net_air_change = np.abs(self.idleness_air_map - self.idleness_air_map_)
 		
 		# Compute the changes for every vehicle by vehicle mask multiplication #
+		#return {i: np.sum(self.drones[i].influence_mask * (net_air_change / self.redundancy_drone_mask())) for i in
+		#        self.drones_ids}
 		return {i: np.sum(self.drones[i].influence_mask * (net_air_change / np.sum(self.redundancy_drone_mask()))) for i in
-		        self.drones_ids}
+		         self.drones_ids}
 
 	def get_last_ASV_waypoints(self):
 		super().get_last_waypoints()

@@ -38,8 +38,8 @@ class shekel(object):
         self.C = 2*np.random.rand(self.number_of_peaks, 1) + 0.5
 
         """
-        print("posizioni dei picchi -> " + str(self.A))
-        print("altezze dei picchi -> " + str(self.C))
+        print("peaks position -> " + str(self.A))
+        print("peaks height -> " + str(self.C))
         """
 
         """ Creation of the map field """

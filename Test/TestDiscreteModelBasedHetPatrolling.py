@@ -41,7 +41,7 @@ class TestDiscreteModelBasedHetPatrolling(unittest.TestCase):
 					drone_height = 120,							
 					n_drones = 1,									
 					drone_direct_idleness_influece = False,		
-					blur_data = False							
+					blur_data = False			
 					)
 
 		env.reset()

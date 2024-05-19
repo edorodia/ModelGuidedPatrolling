@@ -9,6 +9,7 @@ from Environment.GroundTruths.ShekelGroundTruth import shekel
 from gym import spaces
 from Models.KNNmodel import KNNmodel, RKNNmodel
 from Models.MiopicModel import MiopicModel
+from HetModels.HetMiopicModel import HetMiopicModel
 from Models.GaussianProcessModel import GaussianProcessModel
 from Models.PolinomialRegressor import PolinomialRegressor
 from Models.SVRegressor import SVRegressor
@@ -1234,9 +1235,9 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 		#array of possible drone destinations
 		self.possible_positions = np.argwhere(self.navigation_map == 1)
 
-		""" Create the model
+		""" Create the model """
 		if model == 'miopic':
-			self.model = HetKNNmodel(navigation_map=self.navigation_map,
+			self.model = HetMiopicModel(navigation_map=self.navigation_map,
 			                      resolution=self.resolution,
 			                      influence_radius=self.influence_radius,
 			                      dt=0.01)
@@ -1247,7 +1248,6 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 			                         dt=0.7)
 		else:
 			raise ValueError('Unknown model')
-		"""
 		
 
 	def get_ASV_positions(self):
@@ -1350,7 +1350,7 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 		the model used is shared between the two fleets, the air one and the water one
 		even if the drone didn't make a move we still send all informations to the single update_model() method
 		"""
-		self.update_model()
+		self.update_model(ASV_moved, drone_moved)
 		
 
 		# Get the observations #
@@ -1407,7 +1407,7 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 		return observations, done, self.info, ASV_rewards, drone_rewards
 
 	# dafault model is Miopic #
-	def update_model(self):
+	def update_model(self, ASV_moved: bool, drone_moved: bool):
 		""" Update the model """
 		
 		# Obtain all the new positions of the ASVs #
@@ -1431,7 +1431,8 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 		#	self.model.update(sample_positions, values, self.fleet.visited_map)
 		#else:
 			#print("Posizioni passate -> " + str(sample_positions))
-		self.model.update(sample_positions_ASV, values_ASV, sample_positions_Drone, values_Drone)
+		self.model.update(from_ASV = ASV_moved, from_Drone = drone_moved, ASV_positions = sample_positions_ASV, ASV_values = values_ASV, Drone_positions = sample_positions_Drone, Drone_values = values_Drone)
+		#self.model.update(sample_positions_ASV, values_ASV, sample_positions_Drone, values_Drone)
 	
 	def get_observations(self):
 		""" Observation function. The observation is composed by:

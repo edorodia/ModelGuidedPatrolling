@@ -3,7 +3,7 @@ sys.path.append('.')
 from HetModels.HetBaseModel import HetBaseModel
 import numpy as np
 
-class MiopicModel(HetBaseModel):
+class HetMiopicModel(HetBaseModel):
 
 	def __init__(self, navigation_map: np.ndarray, influence_radius:float, resolution: float = 1.0, dt: float = 0.9) -> None:
 		super().__init__()

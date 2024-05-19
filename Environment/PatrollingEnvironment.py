@@ -1234,6 +1234,22 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 		#array of possible drone destinations
 		self.possible_positions = np.argwhere(self.navigation_map == 1)
 
+		""" Create the model
+		if model == 'miopic':
+			self.model = HetKNNmodel(navigation_map=self.navigation_map,
+			                      resolution=self.resolution,
+			                      influence_radius=self.influence_radius,
+			                      dt=0.01)
+		elif model == 'none':
+			self.model = HetMiopicModel(navigation_map=self.navigation_map,
+			                         resolution=self.resolution,
+			                         influence_radius=self.influence_radius,
+			                         dt=0.7)
+		else:
+			raise ValueError('Unknown model')
+		"""
+		
+
 	def get_ASV_positions(self):
 		return self.fleet.get_ASV_positions()
 	
@@ -1296,6 +1312,334 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 			if(np.array_equal(position, element)):
 				return idx
 		return idx
+
+	def get_feasible_positions(self):
+		return self.possible_positions.copy()
+
+	"""
+	actions_ASV 	-> 	the old parameter it has the same meaning as the old one
+	action_type_ASV -> 	the old parameter is action_type, it has the same meaning as the old one
+	positions_Drone -> 	dictionary of id_drone:position where the new drones have to go
+	ASV_moved 		-> 	flag that indicates if ASVs have acquired new data in the new step
+	drone_moved 	-> 	flag that indicates if Drones have acquired new data in the new step
+	"""
+	def step(self, actions_ASV: dict, positions_Drone: dict, ASV_moved: bool, drone_moved: bool, action_type_ASV='discrete'):
+		
+		
+		#converts action integer number to movement (angle and length)
+		if action_type_ASV == 'discrete':
+			movements_orders = {key: self.action_to_movement(action) for key, action in actions.items()}
+		else:
+			movements_orders = actions
+		
+
+		if ASV_moved == True:
+			# increase the ASV step counter by 1 unit
+			self.steps += 1
+			# Move the ASV fleet #
+			self.fleet.move_ASVs(movements_orders, action_type = action_type_ASV)
+
+
+		if drone_moved == True :
+			# Move the Drone fleet #
+			self.fleet.move_Drones(positions_Drone.values())
+		
+		
+		# Update the model #
+		""" 
+		the model used is shared between the two fleets, the air one and the water one
+		even if the drone didn't make a move we still send all informations to the single update_model() method
+		"""
+		self.update_model()
+		
+
+		# Get the observations #
+		""" the observations to be added into the new system are the ones created before:
+		1) Navigation map with obstacles
+		2) Positions of i agent
+		3) Positions of the other agents
+		4) Idleness
+		5) Model
+
+		6) Positions of i drone
+		7) Positions of the other drones
+		8) Air idleness
+
+		even if the drone didn't make a move we still send all info, including the drone ones to the method caller
+		"""
+		observations = self.get_observations()
+		
+
+		# Get the rewards #
+		"""
+		two different reward functions:
+		1) the ASVs reward function
+		2) the Drones reward function 
+		"""
+		# Get ASV rewards #
+		if ASV_moved == True :
+			ASV_rewards = self.get_ASV_rewards()	
+
+		# Get drone rewards #
+		if drone_moved == True :
+			drone_rewards = self.get_drone_rewards()
+		
+
+		# Get the done flag #
+		"""
+		keeps the same method for everything since there is always data to lookup for both in the drone and the ASV
+		"""
+		done = self.get_done()
+		
+
+		#if the dynamic flag is set calls for a step in the ground truth
+		if self.dynamic:
+			self.ground_truth.step()
+		
+
+		# Get the information data #
+		"""
+		drone data has to be added into this method
+		"""
+		if self.eval:
+			self.info = self.get_info()
+		
+		return observations, done, self.info, ASV_rewards, drone_rewards
+
+	# dafault model is Miopic #
+	def update_model(self):
+		""" Update the model """
+		
+		# Obtain all the new positions of the ASVs #
+		# positions = self.fleet.get_positions()
+		sample_positions_ASV = self.fleet.get_last_ASV_waypoints()
+		
+		# Obtain the values of the ground truth in the new ASV positions #
+		values_ASV = self.ground_truth.read(sample_positions_ASV)
+
+		# Obtain all the new positions of the Drones #
+		sample_positions_Drone = self.fleet.get_last_drone_waypoints()
+
+		# Obtain the values of the ground truth in the new drone positions #
+		values_Drone = self.ground_truth.read(sample_positions_Drone)
+		
+		self.previous_model = self.model.predict().copy()
+		
+		# Update the model #
+		
+		#if self.model_str == 'deepUnet' or self.model_str == 'vaeUnet':
+		#	self.model.update(sample_positions, values, self.fleet.visited_map)
+		#else:
+			#print("Posizioni passate -> " + str(sample_positions))
+		self.model.update(sample_positions_ASV, values_ASV, sample_positions_Drone, values_Drone)
+	
+	def get_observations(self):
+		""" Observation function. The observation is composed by:
+		1) Navigation map with obstacles
+		2) Positions of i agent
+		3) Positions of the other agents
+		4) Idleness
+		5) Model
+		"""
+		self.ASV_observations = super().get_observations()
+		self.Drone_observations = self._get_drone_observations()
+
+	def _get_drone_observations(self):
+		""" Observation function. The observation is composed by:
+		6) Positions of i drone
+		7) Positions of the other drones
+		8) Air idleness
+		"""
+		# The observation is a dictionary of every active drone's observation #
+		
+		observations = {}
+		
+		#for every drone
+		for drone_id in self.fleet.drones_ids:
+			
+			if self.int_observation:
+				
+				#saves the observation for that drone in the i-th position
+				#convert the values to values in the [0,255] range
+				observations[drone_id] = np.concatenate((
+						# (255 * self.navigation_map[np.newaxis]).astype(np.uint8),
+						(255 * self.fleet.get_drone_trajectory_map(observer=drone_id)[np.newaxis]).astype(
+								np.uint8),
+						(255 * self.fleet.get_drone_position_map(observers=drone_id)[np.newaxis]).astype(np.uint8),
+						(255 * self.fleet.idleness_air_map[np.newaxis]).astype(np.uint8)
+				), axis=0)
+			
+			else:
+				
+				observations[drone_id] = np.concatenate((
+						# self.navigation_map[np.newaxis],
+						self.fleet.get_drone_trajectory_map(observer=drone_id)[np.newaxis],
+						self.fleet.get_drone_position_map(observers=drone_id)[np.newaxis],
+						self.fleet.idleness_air_map[np.newaxis]
+				), axis=0)
+		
+		return observations
+
+	def get_ASV_rewards(self):
+		super().get_rewards()
+
+	def get_drone_rewards(self):
+		""" The reward is selected depending on the reward type """
+		
+		reward = {}
+		
+		self.true_reward = {}
+		
+		if self.reward_type == 'weighted_idleness':
+			
+			# Compute the reward as the local changes for the drone. #
+			
+			#it is a single value returned
+			W_air = self.fleet.changes_air_idleness()  		# Compute the idleness air changes #
+			
+			for drone_id in self.fleet.drones_ids:
+				# The reward is the sum of the idleness changes in the idleness_air which keeps track of both the asv and drone enviornment reads #
+				
+				#information gain calculated with idleness collected
+				information_gain = np.sum(self.fleet.drones[drone_id].influence_mask * ( 	W_air[drone_id] / 
+																							self.fleet.redundancy_drone_mask()	))
+				#reward for every drone saved
+				reward[drone_id] = information_gain * 100.0
+		
+		else:
+			raise NotImplementedError('Unknown reward type')
+		print(reward)
+		return reward
+
+	def get_done(self):
+		""" End the episode when the distance is greater than the max distance both for the drones and the ASVs """
+			
+		done_ASVs = super().get_done()
+
+		done_Drones = { drone_id: self.fleet.drones[drone_id].distance > self.max_air_distance for drone_id in self.fleet.drones_ids }
+
+		return done_ASVs, done_Drones
+
+	def get_info(self, ASV_moved: bool, drone_moved: bool):
+		""" This method returns the info of the step """
+		
+		y_real = self.ground_truth.read()[self.visitable_positions[:, 0], self.visitable_positions[:, 1]]
+		y_pred = self.model.predict()[self.visitable_positions[:, 0], self.visitable_positions[:, 1]]
+		
+		#questo è l'errore medio tra una cella reale e la sua controparte rilevata dagli agenti
+		mse_error = np.mean((y_real - y_pred) ** 2)
+		mae_error = np.mean(np.abs(y_real - y_pred))
+		normalization_value = np.sum(y_real)
+		r2_score = 1 - np.sum((y_real - y_pred) ** 2) / np.sum((y_real - np.mean(y_real)) ** 2)
+
+		total_average_ASV_distance = np.mean([veh.distance for veh in self.fleet.vehicles])
+		mean_ASV_idleness = np.sum(self.fleet.idleness_map)/np.sum(self.navigation_map)
+		mean_ASV_weighted_idleness = np.sum(self.fleet.idleness_map * self.ground_truth.read())/np.sum(self.navigation_map)
+		coverage_ASV_percentage = np.sum(self.fleet.visited_map) / np.sum(self.navigation_map)
+		true_reward = np.sum([self.true_reward[agent_id] for agent_id in self.fleet.vehicles_ids])
+
+		total_average_drone_distance = np.mean([drn.distance for drn in self.fleet.drones])
+		mean_air_idleness = np.sum(self.fleet.idleness_air_map)/np.sum(self.navigation_map)
+		mean_air_weighted_idleness = np.sum(self.fleet.idleness_air_map * self.ground_truth.read())/np.sum(self.navigation_map)
+		coverage_drone_percentage = np.sum(self.fleet.visited_air_map) / np.sum(self.navigation_map)
+		
+		return {'mse':                    			mse_error,
+		        'mae':                    			mae_error,
+		        'r2':                     			r2_score,
+		        'total_average_ASV_distance': 		total_average_ASV_distance,
+		        'mean_ASV_idleness':          		mean_ASV_idleness,
+		        'mean_ASV_weighted_idleness': 		mean_ASV_weighted_idleness,
+		        'coverage_ASV_percentage':    		coverage_ASV_percentage,
+		        'normalization_value':    			normalization_value,
+		        'true_reward':            			true_reward,
+				'total_average_drone_distance':		total_average_drone_distance,
+				'mean_air_idleness':				mean_air_idleness,
+				'mean_air_weighted_idleness':		mean_air_weighted_idleness,
+				'coverage_drone_percentage':		coverage_drone_percentage
+		        }
+
+	"""
+	the discretemodelbasedpatrolling render includes:
+	- navigation map
+	- agent position (the method shows the first agent position)
+	- fleet position (the other agents positions)
+	- idleness map surface
+	- the prediction of importance of the model
+	- the ground truth
+
+	the new method needs to add the new things introduced in the get_observations override:
+	- Positions of i drone
+	- Positions of the other drones
+	- Air idleness
+	"""
+	def render(self):
+		
+		if self.fig is None:
+			
+			self.fig, self.axs = plt.subplots(3, 3)
+			self.axs = self.axs.flatten()
+			
+			# ASV old class data #
+			# Navigation map
+			self.d0 = self.axs[0].imshow(self.navigation_map, cmap='gray', vmin=0, vmax=1)
+			# self.d0 = self.axs[0].imshow(self.ground_truth.read(), cmap='gray', vmin=0, vmax=1)
+			self.axs[0].set_title('Navigation map')
+			# Agent position
+			self.d1 = self.axs[1].imshow(self.ASV_observations[list(self.fleet.vehicles_ids)[0]][0], cmap='gray', vmin=0,
+			                             vmax=1 if not self.int_observation else 255)
+			self.axs[1].set_title('Agent Position')
+			# Fleet position
+			self.d2 = self.axs[2].imshow(self.ASV_observations[list(self.fleet.vehicles_ids)[0]][1], cmap='gray', vmin=0,
+			                             vmax=1 if not self.int_observation else 255)
+			self.axs[2].set_title('Fleet Position')
+			# Idleness
+			self.d3 = self.axs[3].imshow(self.ASV_observations[list(self.fleet.vehicles_ids)[0]][2], cmap='jet', vmin=0,
+			                             vmax=1 if not self.int_observation else 255)
+			self.axs[3].set_title('Idleness')
+			# Model
+			self.d4 = self.axs[4].imshow(self.ASV_observations[list(self.fleet.vehicles_ids)[0]][3], cmap='jet', vmin=0,
+			                             vmax=1 if not self.int_observation else 255)
+			self.axs[4].set_title('Model')
+			# Ground truth
+			self.d5 = self.axs[5].imshow(self.ground_truth.read(), cmap='jet', vmin=0, vmax=1)
+			self.axs[5].set_title('Ground Truth')
+
+			# New drone data #
+			# Drone position
+			self.d6 = self.axs[6].imshow(self.Drone_observations[list(self.fleet.drones_ids)[0]][0], cmap='gray', vmin=0,
+			                             vmax=1 if not self.int_observation else 255)
+			self.axs[6].set_title('Drone position')
+			# Air Idleness
+			self.d7 = self.axs[7].imshow(self.Drone_observations[list(self.fleet.drones_ids)[0]][2], cmap='jet', vmin=0,
+			                             vmax=1 if not self.int_observation else 255)
+			self.axs[7].set_title('Idleness')
+
+			# Drone fleet position, if there is more than one drone
+			if self.n_drones > 1 :
+				self.d8 = self.axs[8].imshow(self.Drone_observations[list(self.fleet.drones_ids)[0]][1], cmap='gray', vmin=0,
+											vmax=1 if not self.int_observation else 255)
+				self.axs[8].set_title('Fleet Position')
+			
+			plt.colorbar(self.d0, ax=self.axs[0])
+		
+		else:
+			
+			self.d0.set_data(self.navigation_map)
+			# self.d0.set_data(self.ground_truth.read())
+			self.d1.set_data(self.ASV_observations[list(self.fleet.vehicles_ids)[0]][0])
+			self.d2.set_data(self.ASV_observations[list(self.fleet.vehicles_ids)[0]][1])
+			self.d3.set_data(self.ASV_observations[list(self.fleet.vehicles_ids)[0]][2])
+			self.d4.set_data(self.ASV_observations[list(self.fleet.vehicles_ids)[0]][3])
+			self.d5.set_data(self.ground_truth.read())
+
+			self.d6.set_data(self.Drone_observations[list(self.fleet.drones_ids)[0]][0])
+			self.d7.set_data(self.Drone_observations[list(self.fleet.drones_ids)[0]][2])
+			if self.n_drones > 1 :
+				self.d8.set_data(self.Drone_observations[list(self.fleet.drones_ids)[0]][1])
+
+		self.fig.canvas.draw()
+		self.fig.canvas.flush_events()
+		plt.pause(0.01)
 
 
 if __name__ == "__main__":

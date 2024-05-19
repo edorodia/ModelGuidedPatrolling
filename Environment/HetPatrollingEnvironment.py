@@ -9,6 +9,7 @@ from Environment.GroundTruths.ShekelGroundTruth import shekel
 from gym import spaces
 from Models.KNNmodel import KNNmodel, RKNNmodel
 from Models.MiopicModel import MiopicModel
+from HetModels.HetMiopicModel import HetMiopicModel
 from Models.GaussianProcessModel import GaussianProcessModel
 from Models.PolinomialRegressor import PolinomialRegressor
 from Models.SVRegressor import SVRegressor
@@ -27,9 +28,8 @@ if __name__ == "__main__":
 		#swtich to a more interactive rendering backend for the plots
 		plt.switch_backend('TkAgg')
 		
-		# ? #
-		from PathPlanners.LawnMower import LawnMowerAgent
-		from PathPlanners.NRRA import WanderingAgent
+		# OK #
+		from HetPathPlanners.RandomMover import RandomDroneMover, RandomVehicleMover
 		import time
 		
 		# OK #
@@ -62,7 +62,8 @@ if __name__ == "__main__":
 					max_distance = 400,
 					influence_radius = 2,
 					forgetting_factor= 0.01,
-					reward_type='weighted_importance',
+					reward_drone_type='weighted_idleness',
+					reward_type='weighted_idleness',
 					reward_weights=[10, 10],
 					benchmark = 'shekel',
 					model = 'none',
@@ -85,36 +86,54 @@ if __name__ == "__main__":
 			t0 = time.time()
 			env.reset()
 			#initializes the done array, with a flag for every agent
-			done = {i: False for i in range(N)}
+			done_ASV = {i: False for i in range(N_ASV)}
+			#initializes the done array, with a flag for every drone
+			done_Drone = {i: False for i in range(N_drones)}
 			
 			mse = []
 			rewards_list = []
 			
-			#generates the array of agents which follow the WanderingAgent model
-			agent = {i: WanderingAgent(world=scenario_map, number_of_actions=8, movement_length=4, seed=0) for i in
-					 range(N)}
+			#generates the array of agents which follow the RandomVehicleMover model
+			agent = {i: RandomVehicleMover(world=scenario_map, number_of_actions=8, movement_length=4, seed=0) for i in
+					 range(N_ASV)}
+					 
+			#generates the array of agents which follow the RandomDroneMover model
+			drone = {i: RandomDroneMover(world=scenario_map) for i in range(N_drones)}
 			
 			#while there is some agent which is not done yet
-			while not all(done.values()):
+			while not all(done_ASV.values()) and not all(done_Drone.values()):
 				
-				# actions = {i: np.random.randint(0,8) for i in done.keys() if not done[i]}
-				#picks an action for every agent that is not yet done
-				actions = {i: agent[i].move(env.fleet.vehicles[i].position.astype(int)) for i in done.keys() if
-						   not done[i]}
-				#executes the actions in the environment
-				observations, rewards, done, info = env.step(actions)
+				#picks an action for every vehicle that is not yet done
+				actions_ASV = {i: agent[i].move(env.fleet.vehicles[i].position.astype(int)) for i in done_ASV.keys() if
+						   not done_ASV[i]}
+
+				#picks an action for every drone that is not yet done
+				positions_drone = {i: drone[i].move(env.fleet.drones[i].position.astype(int)) for i in done_Drone.keys() if
+						   not done_Drone[i]}
 				
-				for i in range(N):
+				#executes the actions in the environment, it has to execute them in the right moment depending on the quickness of the drone
+				observations, ASV_rewards, drone_rewards, done_ASV, done_Drone, info = env.step(actions_ASV, positions_drone, True, True)
+				
+				for i in range(N_ASV):
 					# If rewards dict does not contain the key, add it with 0 value #
-					if i not in rewards.keys():
-						rewards[i] = 0
+					if i not in ASV_rewards.keys():
+						ASV_rewards[i] = 0
 				
-				rewards_list.append([rewards[i] for i in range(N)])
+				rewards_list.append([ASV_rewards[i] for i in range(N_ASV)])
+
+				for i in range(N_drones):
+					# If rewards dict does not contain the key, add it with 0 value #
+					if i not in drone_rewards.keys():
+						drone_rewards[i] = 0
+				
+				rewards_list.append([drone_rewards[i] for i in range(N_drones)])
 				
 				env.render()
 				
-				print("Rewards: ", rewards)
-				print("Done: ", done)
+				print("ASV_rewards: ", ASV_rewards)
+				print("drone_rewards: ", drone_rewards)
+				print("Done_ASV: ", done_ASV)
+				print("Done_Drone: ", done_Drone)
 				print("Info: ", info)
 				
 				plt.pause(0.2)

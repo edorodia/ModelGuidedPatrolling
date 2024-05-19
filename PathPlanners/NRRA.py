@@ -72,7 +72,7 @@ class WanderingAgent:
 		#has a true value for every action that brings to a collision
 		action_caused_collision = [self.check_collision(action, actual_position) for action in range(self.number_of_actions)]
 
-		# Select a random action without collision and that is not the oppositve previous action #
+		# Select a random action without collision and that is not the opposite to previous action #
 		if self.action is not None:
 			#checks if a previous action exists, if it does just sets the collision of that action to True so that it can be avoided as the others
 			opposite_action = self.opposite_action(self.action)

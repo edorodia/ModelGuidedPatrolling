@@ -246,7 +246,6 @@ class Vehicle:
 				self.influence_mask = self._influence_mask()
 		
 		self.last_waypoints = np.asarray(self.last_waypoints)
-		
 		return "OK"
 	
 	def collision(self, position):
@@ -453,6 +452,7 @@ class CoordinatedFleet:
 	
 	def get_last_waypoints(self):
 		""" Return the last waypoints of the vehicles """
+		# till here it works
 		return np.vstack([vehicle.last_waypoints for vehicle in self.vehicles])
 
 
@@ -688,7 +688,7 @@ class CoordinatedHetFleet(CoordinatedFleet):
 		         self.drones_ids}
 
 	def get_last_ASV_waypoints(self):
-		super().get_last_waypoints()
+		return super().get_last_waypoints()
 	
 	def get_last_drone_waypoints(self):
 		""" Return the last waypoints of the drones """
@@ -1161,6 +1161,7 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 	             max_distance: float,
 	             influence_radius: float,
 	             forgetting_factor: float = 0.01,
+				 reward_drone_type='weighted_idleness',
 	             reward_type='weighted_importance',
 	             reward_weights=(1, 1),
 	             benchmark: str = 'algae_bloom',
@@ -1213,6 +1214,7 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 		self.blur_data = blur_data
 		self.drone_idleness_influence = drone_idleness_influence
 		self.drone_direct_idleness_influence = drone_direct_idleness_influece
+		self.reward_drone_type = reward_drone_type
 
 		""" Create the fleet """		
 		self.fleet = CoordinatedHetFleet(n_vehicles = self.n_agents,							
@@ -1249,6 +1251,7 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 		else:
 			raise ValueError('Unknown model')
 		
+		#print(self.reward_type)
 
 	def get_ASV_positions(self):
 		return self.fleet.get_ASV_positions()
@@ -1328,7 +1331,7 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 		
 		#converts action integer number to movement (angle and length)
 		if action_type_ASV == 'discrete':
-			movements_orders = {key: self.action_to_movement(action) for key, action in actions.items()}
+			movements_orders = {key: self.action_to_movement(action) for key, action in actions_ASV.items()}
 		else:
 			movements_orders = actions
 		
@@ -1339,10 +1342,9 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 			# Move the ASV fleet #
 			self.fleet.move_ASVs(movements_orders, action_type = action_type_ASV)
 
-
 		if drone_moved == True :
 			# Move the Drone fleet #
-			self.fleet.move_Drones(positions_Drone.values())
+			self.fleet.move_Drones(np.array(list(positions_Drone.values())))
 		
 		
 		# Update the model #
@@ -1378,8 +1380,7 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 		"""
 		# Get ASV rewards #
 		if ASV_moved == True :
-			ASV_rewards = self.get_ASV_rewards()	
-
+			ASV_rewards = self.get_ASV_rewards()
 		# Get drone rewards #
 		if drone_moved == True :
 			drone_rewards = self.get_drone_rewards()
@@ -1389,7 +1390,7 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 		"""
 		keeps the same method for everything since there is always data to lookup for both in the drone and the ASV
 		"""
-		done = self.get_done()
+		done_ASV, done_Drone = self.get_done()
 		
 
 		#if the dynamic flag is set calls for a step in the ground truth
@@ -1404,7 +1405,7 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 		if self.eval:
 			self.info = self.get_info()
 		
-		return observations, done, self.info, ASV_rewards, drone_rewards
+		return observations, ASV_rewards, drone_rewards, done_ASV, done_Drone, self.info
 
 	# dafault model is Miopic #
 	def update_model(self, ASV_moved: bool, drone_moved: bool):
@@ -1466,7 +1467,7 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 						# (255 * self.navigation_map[np.newaxis]).astype(np.uint8),
 						(255 * self.fleet.get_drone_trajectory_map(observer=drone_id)[np.newaxis]).astype(
 								np.uint8),
-						(255 * self.fleet.get_drone_position_map(observers=drone_id)[np.newaxis]).astype(np.uint8),
+						(255 * self.fleet.get_drone_fleet_position_map(observers=drone_id)[np.newaxis]).astype(np.uint8),
 						(255 * self.fleet.idleness_air_map[np.newaxis]).astype(np.uint8)
 				), axis=0)
 			
@@ -1475,23 +1476,20 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 				observations[drone_id] = np.concatenate((
 						# self.navigation_map[np.newaxis],
 						self.fleet.get_drone_trajectory_map(observer=drone_id)[np.newaxis],
-						self.fleet.get_drone_position_map(observers=drone_id)[np.newaxis],
+						self.fleet.get_drone_fleet_position_map(observers=drone_id)[np.newaxis],
 						self.fleet.idleness_air_map[np.newaxis]
 				), axis=0)
 		
 		return observations
 
 	def get_ASV_rewards(self):
-		super().get_rewards()
+		return super().get_rewards()
 
 	def get_drone_rewards(self):
 		""" The reward is selected depending on the reward type """
 		
 		reward = {}
-		
-		self.true_reward = {}
-		
-		if self.reward_type == 'weighted_idleness':
+		if self.reward_drone_type == 'weighted_idleness':
 			
 			# Compute the reward as the local changes for the drone. #
 			
@@ -1503,7 +1501,7 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 				
 				#information gain calculated with idleness collected
 				information_gain = np.sum(self.fleet.drones[drone_id].influence_mask * ( 	W_air[drone_id] / 
-																							self.fleet.redundancy_drone_mask()	))
+																							np.sum(self.fleet.redundancy_drone_mask())	))
 				#reward for every drone saved
 				reward[drone_id] = information_gain * 100.0
 		
@@ -1521,7 +1519,7 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 
 		return done_ASVs, done_Drones
 
-	def get_info(self, ASV_moved: bool, drone_moved: bool):
+	def get_info(self):
 		""" This method returns the info of the step """
 		
 		y_real = self.ground_truth.read()[self.visitable_positions[:, 0], self.visitable_positions[:, 1]]
@@ -1707,6 +1705,15 @@ if __name__ == "__main__":
 				           not done[i]}
 				#executes the actions in the environment
 				observations, rewards, done, info = env.step(actions)
+
+				print("posizione agenti")
+				print([env.fleet.vehicles[id].position for id in env.fleet.vehicles_ids])
+
+				for id_pos,pos in {id: env.fleet.vehicles[id].position for id in env.fleet.vehicles_ids}.items():
+					for id_pos2,pos2 in {id1: env.fleet.vehicles[id1].position for id1 in env.fleet.vehicles_ids if id1 != id_pos}.items():
+						if np.array_equal(pos, pos2):
+							print(pos, pos2)
+							print("FOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\nFOUND\n")
 				
 				for i in range(N):
 					# If rewards dict does not contain the key, add it with 0 value #

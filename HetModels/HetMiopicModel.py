@@ -5,6 +5,7 @@ import numpy as np
 
 class HetMiopicModel(HetBaseModel):
 
+	# add the influence side to get the data in a correct manner
 	def __init__(self, navigation_map: np.ndarray, influence_radius:float, resolution: float = 1.0, dt: float = 0.9) -> None:
 		super().__init__()
 

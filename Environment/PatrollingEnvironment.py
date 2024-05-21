@@ -46,12 +46,7 @@ class Drone:
 		self.last_waypoints = []
 		self.steps = 0
 
-		#the influence_side has to be odd in order to have the drone always centered in a cell, the even values will be increased by 1
-		influence_side = np.floor(influence_side)
-		if influence_side % 2 == 0 :
-			self.influence_side = influence_side + 1
-		else :
-			self.influence_side = influence_side
+		
 		
 		self.camera_fov_angle = camera_fov_angle
 		self.drone_height = drone_height
@@ -1207,7 +1202,14 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 		self.n_drones = n_drones
 		self.initial_air_positions = initial_air_positions
 		self.max_air_distance = max_air_distance
-		self.influence_side = influence_side
+
+		#the influence_side has to be odd in order to have the drone always centered in a cell, the even values will be increased by 1
+		influence_side = np.floor(influence_side)
+		if influence_side % 2 == 0 :
+			self.influence_side = influence_side + 1
+		else :
+			self.influence_side = influence_side
+		
 		self.forgetting_air_factor = forgetting_air_factor
 		self.camera_fov_angle = camera_fov_angle
 		self.drone_height = drone_height

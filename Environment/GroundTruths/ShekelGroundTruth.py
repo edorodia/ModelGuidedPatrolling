@@ -92,11 +92,6 @@ class shekel(object):
         self.A = np.random.rand(self.number_of_peaks, 2) * self.xy_size # * 0.9 + self.xy_size*0.1
         # Peaks size bounded from a minimum 2.5 to 5
         self.C = 2*np.random.rand(self.number_of_peaks, 1) + 0.5
-
-        """
-        print("posizioni dei picchi -> " + str(self.A))
-        print("altezze dei picchi -> " + str(self.C))
-        """
         
         # Reconstruct the field #
         self.create_field()

@@ -19,6 +19,7 @@ from PathPlanners.dijkstra import Dijkstra
 
 from Environment.exploration_policies import preComputedExplorationPolicy
 
+from HetModels.NoiseModels.NoNoise import NoNoise
 
 class Drone:
 	#influence_side: defines the number of cells in the navigation map covered by a single picture of the drone (the equivalent of the influence_radius of an ASV)
@@ -46,6 +47,7 @@ class Drone:
 		self.last_waypoints = []
 		self.steps = 0
 
+		self.influence_side = influence_side
 		
 		
 		self.camera_fov_angle = camera_fov_angle
@@ -686,8 +688,11 @@ class CoordinatedHetFleet(CoordinatedFleet):
 		return super().get_last_waypoints()
 	
 	def get_last_drone_waypoints(self):
+		waypoints_dict = {}
+		for drone_id in self.drones_ids:
+			waypoints_dict[drone_id]=np.vstack([self.drones[drone_id].last_waypoints])
 		""" Return the last waypoints of the drones """
-		return np.vstack([drone.last_waypoints for drone in self.drones])
+		return waypoints_dict
 
 	def render(self):
 		
@@ -1173,7 +1178,8 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 				 drone_height: float = 120,							#
 				 n_drones: int = 1,									#
 				 drone_direct_idleness_influece : bool = False,		#
-				 blur_data: bool = False							#
+				 blur_data: bool = False,							#
+				 drone_noise: str = 'none'							#
 	             ):
 		
 		super().__init__(n_agents,
@@ -1253,6 +1259,11 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 		else:
 			raise ValueError('Unknown model')
 		
+		if drone_noise == 'none':
+			self.DroneNoiseModel = NoNoise()
+		elif drone_noise == 'NoNoise':
+			self.DroneNoiseModel = NoNoise()
+
 		#print(self.reward_type)
 
 	def get_ASV_positions(self):
@@ -1409,6 +1420,49 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 		
 		return observations, ASV_rewards, drone_rewards, done_ASV, done_Drone, self.info
 
+	"""
+	returns a dictionary with drone_id index, every drone_id has its own dictionary with all the square-cell-set having the center in every last waypoint position
+	"""
+	def _get_sample_drone_positions(self, positions: dict):
+		offset = self.influence_side/2
+		sample_drone_positions = {}
+
+		for drone_id in positions.keys():
+			count = 0
+			sample_drone_positions[drone_id]={}
+			for position in positions[drone_id]:
+				column_start = int(np.ceil(position[1] - offset))
+				row_start 	 = int(np.ceil(position[0] - offset))
+
+				column_end 	 = int(np.floor(position[1] + offset))
+				row_end 	 = int(np.floor(position[0] + offset))
+
+				column_grid  = np.arange(column_start, column_end + 1)
+				row_grid     = np.arange(row_start, row_end + 1)
+
+				grid1, grid2 = np.meshgrid(row_grid, column_grid)
+
+				sample_drone_positions[drone_id][count] = (np.column_stack((grid1.ravel(), grid2.ravel())))
+				count += 1
+		
+		return sample_drone_positions
+	
+	"""
+	return the 2d matrix representing the square composed by the values read in the ground truth, this is the square to be passed to the noise mask
+	"""
+	def _generate_square(positions: np.ndarray, values: np.ndarray):
+		# Get the smallest and biggest value for every column (for rows and columns of the square)
+		min_row = np.min(positions, axis=0)[0]
+		min_column = np.min(positions, axis=0)[1]
+		max_row = np.max(positions, axis=0)[0]
+		max_column = np.max(positions, axis=0)[1]
+
+		square = np.zeros(((max_row-min_row) + 1, (max_column-min_column) + 1), dtype=float)
+
+		square[positions[:,0], positions[:,1]] = values
+
+
+
 	# dafault model is Miopic #
 	def update_model(self, ASV_moved: bool, drone_moved: bool):
 		""" Update the model """
@@ -1421,12 +1475,25 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 		values_ASV = self.ground_truth.read(sample_positions_ASV)
 
 		# Obtain all the new positions of the Drones #
-		sample_positions_Drone = self.fleet.get_last_drone_waypoints()
+		Drone_positions_dict = self.fleet.get_last_drone_waypoints()
 
-		# Obtain the values of the ground truth in the new drone positions #
-		values_Drone = self.ground_truth.read(sample_positions_Drone)
-		
+		Drone_squares_dict = self._get_sample_drone_positions(Drone_positions_dict)
+
 		self.previous_model = self.model.predict().copy()
+		"""
+		for every drone's square get the ground_truth values and apply the noise model
+		"""
+		count_update = 0
+		for drone_id in Drone_squares_dict.keys():
+			for square_id in Drone_squares_dict[drone_id]:
+				# Get the ground truth values #
+				values_square = self.ground_truth.read(Drone_squares_dict[drone_id][square_id])
+				# Apply the noise mask #
+				drone_positions_list, values_Drone = self.DroneNoiseModel.mask(Drone_squares_dict[drone_id][square_id],values_square)
+				count_update += 1
+				self.model.update(from_ASV = ASV_moved, from_Drone = drone_moved, ASV_positions = sample_positions_ASV, ASV_values = values_ASV, Drone_positions = drone_positions_list, Drone_values = values_Drone)
+
+		
 		
 		# Update the model #
 		
@@ -1434,7 +1501,7 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 		#	self.model.update(sample_positions, values, self.fleet.visited_map)
 		#else:
 			#print("Posizioni passate -> " + str(sample_positions))
-		self.model.update(from_ASV = ASV_moved, from_Drone = drone_moved, ASV_positions = sample_positions_ASV, ASV_values = values_ASV, Drone_positions = sample_positions_Drone, Drone_values = values_Drone)
+		
 		#self.model.update(sample_positions_ASV, values_ASV, sample_positions_Drone, values_Drone)
 	
 	def get_observations(self):

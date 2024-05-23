@@ -77,7 +77,8 @@ if __name__ == "__main__":
 					drone_height = 120,							
 					n_drones = 1,									
 					drone_direct_idleness_influece = False,		
-					blur_data = False							
+					blur_data = False,
+					drone_noise = 'MeanNoise'							
 					)
 		
 		#print(env.max_num_steps)

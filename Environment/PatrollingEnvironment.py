@@ -20,6 +20,7 @@ from PathPlanners.dijkstra import Dijkstra
 from Environment.exploration_policies import preComputedExplorationPolicy
 
 from HetModels.NoiseModels.NoNoise import NoNoise
+from HetModels.NoiseModels.MeanNoise import MeanNoise
 
 class Drone:
 	#influence_side: defines the number of cells in the navigation map covered by a single picture of the drone (the equivalent of the influence_radius of an ASV)
@@ -1259,10 +1260,13 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 		else:
 			raise ValueError('Unknown model')
 		
+		""" Create the Drone Reading Noise """
 		if drone_noise == 'none':
 			self.DroneNoiseModel = NoNoise()
 		elif drone_noise == 'NoNoise':
 			self.DroneNoiseModel = NoNoise()
+		elif drone_noise == 'MeanNoise':
+			self.DroneNoiseModel = MeanNoise()
 
 		#print(self.reward_type)
 

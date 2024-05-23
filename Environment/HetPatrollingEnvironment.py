@@ -75,11 +75,11 @@ if __name__ == "__main__":
 					pre_exploration_steps = 0, 
 					camera_fov_angle = 160,						
 					drone_height = 120,							
-					n_drones = 1,									
+					n_drones = N_drones,									
 					drone_direct_idleness_influece = False,		
 					blur_data = False,
 					drone_noise = 'FishEyeNoise',
-					fisheye_side=8			
+					fisheye_side=5	
 					)
 		
 		#print(env.max_num_steps)

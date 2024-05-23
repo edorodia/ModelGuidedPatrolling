@@ -21,6 +21,7 @@ from Environment.exploration_policies import preComputedExplorationPolicy
 
 from HetModels.NoiseModels.NoNoise import NoNoise
 from HetModels.NoiseModels.MeanNoise import MeanNoise
+from HetModels.NoiseModels.FishEyeNoiseApproximator import FishEyeNoiseApproximator
 
 class Drone:
 	#influence_side: defines the number of cells in the navigation map covered by a single picture of the drone (the equivalent of the influence_radius of an ASV)
@@ -1180,7 +1181,8 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 				 n_drones: int = 1,									#
 				 drone_direct_idleness_influece : bool = False,		#
 				 blur_data: bool = False,							#
-				 drone_noise: str = 'none'							#
+				 drone_noise: str = 'none',							#
+				 fisheye_side: float = 1
 	             ):
 		
 		super().__init__(n_agents,
@@ -1255,7 +1257,7 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 		elif model == 'none':
 			self.model = HetMiopicModel(navigation_map=self.navigation_map,
 			                         resolution=self.resolution,
-			                         influence_radius=self.influence_radius,
+			                         influence_radius=0,
 			                         dt=0.7)
 		else:
 			raise ValueError('Unknown model')
@@ -1267,6 +1269,8 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 			self.DroneNoiseModel = NoNoise()
 		elif drone_noise == 'MeanNoise':
 			self.DroneNoiseModel = MeanNoise()
+		elif drone_noise == 'FishEyeNoise':
+			self.DroneNoiseModel = FishEyeNoiseApproximator(self.influence_side, fisheye_side)
 
 		#print(self.reward_type)
 
@@ -1809,6 +1813,7 @@ if __name__ == "__main__":
 			
 			plt.close()
 			plt.figure()
+			print("Valore minimo mse -> " + str(min(mse)))
 			plt.plot(mse)
 			plt.show()
 	

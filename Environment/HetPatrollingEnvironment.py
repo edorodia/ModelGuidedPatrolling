@@ -66,7 +66,7 @@ if __name__ == "__main__":
 					reward_type='weighted_idleness',
 					reward_weights=[10, 10],
 					benchmark = 'shekel',
-					model = 'none',
+					model = 'miopic',
 					dynamic = False,
 					seed = 50000,
 					int_observation = True,
@@ -78,7 +78,8 @@ if __name__ == "__main__":
 					n_drones = 1,									
 					drone_direct_idleness_influece = False,		
 					blur_data = False,
-					drone_noise = 'MeanNoise'							
+					drone_noise = 'FishEyeNoise',
+					fisheye_side=8			
 					)
 		
 		#print(env.max_num_steps)
@@ -145,6 +146,7 @@ if __name__ == "__main__":
 			
 			plt.close()
 			plt.figure()
+			print("Valore minimo mse -> " + str(min(mse)))
 			plt.plot(mse)
 			plt.show()
 	

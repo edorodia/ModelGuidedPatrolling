@@ -39,9 +39,9 @@ class HetMiopicModel(HetBaseModel):
 					# Set the positions to y
 					# Sets the positions under the influence radius to the values discovered
 					self.model_map[positions[:,0], positions[:,1]] = ASV_values[i]
-			else :
-				#this is what is done if there is no influence radius every position in the model map gets it corresponding value withouth considering the radius
-				self.model_map[ASV_positions[:,0].astype(int), ASV_positions[:,1].astype(int)] = ASV_values
+			
+			#this is what is done if there is no influence radius every position in the model map gets it corresponding value withouth considering the radius
+			self.model_map[ASV_positions[:,0].astype(int), ASV_positions[:,1].astype(int)] = ASV_values
 		
 		#the drone uses influence_side in another way than ASVs do, every cell is an effective environment read with a different value read
 		if from_Drone:

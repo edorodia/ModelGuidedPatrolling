@@ -1688,7 +1688,7 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 			# Air Idleness
 			self.d7 = self.axs[7].imshow(self.Drone_observations[list(self.fleet.drones_ids)[0]][2], cmap='jet', vmin=0,
 			                             vmax=1 if not self.int_observation else 255)
-			self.axs[7].set_title('Idleness')
+			self.axs[7].set_title('Global Idleness')
 
 			# Drone fleet position, if there is more than one drone
 			if self.n_drones > 1 :

@@ -489,6 +489,8 @@ class CoordinatedHetFleet(CoordinatedFleet):
 
 		self.n_drones = n_drones
 
+		self.air_idleness_edited = False 
+
 		self.idleness_air_map = np.ones_like(self.navigation_map)
 		self.idleness_air_map_ = np.ones_like(self.navigation_map)
 		self.changes_in_air_idleness = np.zeros_like(self.navigation_map)
@@ -554,6 +556,15 @@ class CoordinatedHetFleet(CoordinatedFleet):
 		# Copy the previous idleness air map #
 		self.idleness_air_map_ = self.idleness_air_map.copy()
 		
+		# Checks if the air forgetting factor was already added by the other method #
+		if not self.air_idleness_edited:
+
+			# Update the idleness air map #
+			self.idleness_air_map += self.air_forgetting_factor # Increment the idleness air map everywhere
+			
+			self.idleness_air_map = np.clip(self.idleness_air_map, 0, 1)  # Clip the idleness map
+			self.air_idleness_edited = True
+
 		# Reset the idleness air map in the vehicles influence area #
 		for vehicle_id in self.vehicles_ids:
 			self.idleness_air_map[np.where(self.vehicles[vehicle_id].influence_mask != 0)] = 0
@@ -579,11 +590,15 @@ class CoordinatedHetFleet(CoordinatedFleet):
 		""" Drone's idleness has to be reset to 0 in the Drone influence area """
 		# Copy the previous idleness air map #
 		self.idleness_air_map_ = self.idleness_air_map.copy()
-		
-		# Update the idleness air map #
-		self.idleness_air_map += self.air_forgetting_factor # Increment the idleness air map everywhere
-		
-		self.idleness_air_map = np.clip(self.idleness_air_map, 0, 1)  # Clip the idleness map
+
+		# Checks if the air forgetting factor was already added by the other method #
+		if not self.air_idleness_edited:
+
+			# Update the idleness air map #
+			self.idleness_air_map += self.air_forgetting_factor # Increment the idleness air map everywhere
+			
+			self.idleness_air_map = np.clip(self.idleness_air_map, 0, 1)  # Clip the idleness map
+			self.air_idleness_edited = True
 		
 		# Reset the idleness air map in the vehicles influence area #
 		for drone_id in self.drones_ids:
@@ -591,6 +606,9 @@ class CoordinatedHetFleet(CoordinatedFleet):
 		
 		self.idleness_air_map = self.idleness_air_map * self.navigation_map
 
+	def end_step_movements(self):
+		self.air_idleness_edited = False
+	
 	def get_ASV_position_map(self, observer: int):
 		return super().get_vehicle_position_map(observer)
 	
@@ -1366,6 +1384,9 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 		if drone_moved == True :
 			# Move the Drone fleet #
 			self.fleet.move_Drones(np.array(list(positions_Drone.values())))
+
+		
+		self.fleet.end_step_movements()
 		
 		
 		# Update the model #
@@ -1454,22 +1475,6 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 				count += 1
 		
 		return sample_drone_positions
-	
-	"""
-	return the 2d matrix representing the square composed by the values read in the ground truth, this is the square to be passed to the noise mask
-	"""
-	def _generate_square(positions: np.ndarray, values: np.ndarray):
-		# Get the smallest and biggest value for every column (for rows and columns of the square)
-		min_row = np.min(positions, axis=0)[0]
-		min_column = np.min(positions, axis=0)[1]
-		max_row = np.max(positions, axis=0)[0]
-		max_column = np.max(positions, axis=0)[1]
-
-		square = np.zeros(((max_row-min_row) + 1, (max_column-min_column) + 1), dtype=float)
-
-		square[positions[:,0], positions[:,1]] = values
-
-
 
 	# dafault model is Miopic #
 	def update_model(self, ASV_moved: bool, drone_moved: bool):

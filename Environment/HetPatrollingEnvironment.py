@@ -79,7 +79,8 @@ if __name__ == "__main__":
 					drone_direct_idleness_influece = False,		
 					blur_data = False,
 					drone_noise = 'FishEyeNoise',
-					fisheye_side=5	
+					fisheye_side=5,
+					update_only_with_ASV=False
 					)
 		
 		#print(env.max_num_steps)

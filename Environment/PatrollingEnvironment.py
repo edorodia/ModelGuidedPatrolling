@@ -472,7 +472,8 @@ class CoordinatedHetFleet(CoordinatedFleet):
 				 blur_data: bool,	
 				 drone_idleness_influence: float,		
 				 drone_direct_idleness_influece: bool,					
-				 n_drones: int):						
+				 n_drones: int,
+				 update_only_with_ASV: bool):						
 
 		super().__init__(n_vehicles, 
 				       initial_surface_positions,
@@ -489,6 +490,7 @@ class CoordinatedHetFleet(CoordinatedFleet):
 
 		self.n_drones = n_drones
 
+		self.update_only_with_ASV = update_only_with_ASV
 		self.air_idleness_edited = False 
 
 		self.idleness_air_map = np.ones_like(self.navigation_map)
@@ -592,8 +594,8 @@ class CoordinatedHetFleet(CoordinatedFleet):
 		self.idleness_air_map_ = self.idleness_air_map.copy()
 
 		# Checks if the air forgetting factor was already added by the other method #
-		if not self.air_idleness_edited:
-
+		if not self.air_idleness_edited and not self.update_only_with_ASV:
+			
 			# Update the idleness air map #
 			self.idleness_air_map += self.air_forgetting_factor # Increment the idleness air map everywhere
 			
@@ -1200,7 +1202,8 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 				 drone_direct_idleness_influece : bool = False,		#
 				 blur_data: bool = False,							#
 				 drone_noise: str = 'none',							#
-				 fisheye_side: float = 1
+				 fisheye_side: float = 1,							#
+				 update_only_with_ASV: bool = False					#		allows to set wheter the global idleness forgetting factor has to be added only with ASV read or with both the ASV and drone read
 	             ):
 		
 		super().__init__(n_agents,
@@ -1244,6 +1247,7 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 		self.drone_idleness_influence = drone_idleness_influence
 		self.drone_direct_idleness_influence = drone_direct_idleness_influece
 		self.reward_drone_type = reward_drone_type
+		self.update_only_with_ASV = update_only_with_ASV
 
 		""" Create the fleet """		
 		self.fleet = CoordinatedHetFleet(n_vehicles = self.n_agents,							
@@ -1261,7 +1265,8 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 										blur_data = self.blur_data,	
 										drone_idleness_influence = self.drone_idleness_influence,		
 										drone_direct_idleness_influece = self.drone_direct_idleness_influence,					
-										n_drones = self.n_drones)		
+										n_drones = self.n_drones,
+										update_only_with_ASV=self.update_only_with_ASV)		
 
 		#array of possible drone destinations
 		self.possible_positions = np.argwhere(self.navigation_map == 1)

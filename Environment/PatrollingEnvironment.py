@@ -1460,24 +1460,22 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 	def _get_sample_drone_positions(self, positions: dict):
 		offset = self.influence_side/2
 		sample_drone_positions = {}
-
 		for drone_id in positions.keys():
-			count = 0
-			sample_drone_positions[drone_id]={}
-			for position in positions[drone_id]:
-				column_start = int(np.ceil(position[1] - offset))
-				row_start 	 = int(np.ceil(position[0] - offset))
 
-				column_end 	 = int(np.floor(position[1] + offset))
-				row_end 	 = int(np.floor(position[0] + offset))
+			position = positions[drone_id][0]
+			
+			column_start = int(np.ceil(position[1] - offset))
+			row_start 	 = int(np.ceil(position[0] - offset))
 
-				column_grid  = np.arange(column_start, column_end + 1)
-				row_grid     = np.arange(row_start, row_end + 1)
+			column_end 	 = int(np.floor(position[1] + offset))
+			row_end 	 = int(np.floor(position[0] + offset))
 
-				grid1, grid2 = np.meshgrid(row_grid, column_grid)
+			column_grid  = np.arange(column_start, column_end + 1)
+			row_grid     = np.arange(row_start, row_end + 1)
 
-				sample_drone_positions[drone_id][count] = (np.column_stack((grid1.ravel(), grid2.ravel())))
-				count += 1
+			grid1, grid2 = np.meshgrid(row_grid, column_grid)
+
+			sample_drone_positions[drone_id] = (np.column_stack((grid1.ravel(), grid2.ravel())))
 		
 		return sample_drone_positions
 
@@ -1503,13 +1501,12 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 		"""
 		count_update = 0
 		for drone_id in Drone_squares_dict.keys():
-			for square_id in Drone_squares_dict[drone_id]:
-				# Get the ground truth values #
-				values_square = self.ground_truth.read(Drone_squares_dict[drone_id][square_id])
-				# Apply the noise mask #
-				drone_positions_list, values_Drone = self.DroneNoiseModel.mask(Drone_squares_dict[drone_id][square_id],values_square)
-				count_update += 1
-				self.model.update(from_ASV = ASV_moved, from_Drone = drone_moved, ASV_positions = sample_positions_ASV, ASV_values = values_ASV, Drone_positions = drone_positions_list, Drone_values = values_Drone)
+			# Get the ground truth values #
+			values_square = self.ground_truth.read(Drone_squares_dict[drone_id])
+			# Apply the noise mask #
+			drone_positions_list, values_Drone = self.DroneNoiseModel.mask(Drone_squares_dict[drone_id],values_square)
+			count_update += 1
+			self.model.update(from_ASV = ASV_moved, from_Drone = drone_moved, ASV_positions = sample_positions_ASV, ASV_values = values_ASV, Drone_positions = drone_positions_list, Drone_values = values_Drone)
 
 		
 		

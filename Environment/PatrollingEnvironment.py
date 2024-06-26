@@ -523,22 +523,26 @@ class CoordinatedHetFleet(CoordinatedFleet):
 	def move_ASVs(self, movements, action_type='discrete'):
 		super().move(movements, action_type)
 	
-	def move_Drones(self, to_positions):
-		# Set the flags for inactive drones #
+	# to_positions : is a dictionary that has only the drone:position values of the drones that have to move
+	def move_Drones(self, to_positions: dict):
+
+		# Set the flags for inactive drones that have to move #
 		remove_ids = []
-		for drone_id in self.drones_ids:
+		for drone_id in to_positions.keys():
 			if self.drones[drone_id].distance > self.total_max_air_distance:
 				remove_ids.append(drone_id)
 		
-		# Remove the inactive drones #
+		# Remove the inactive drones from the drones_ids list #
 		for drone_id in remove_ids:
 			self.drones_ids.remove(drone_id)
 		
 		# Move the drones #
+		for drone_id in to_positions.keys():
+			if drone_id in self.drones_ids:
+				# Move the drone_id drone to the position in its index #
+				self.drones[drone_id].move(to_positions[drone_id][1], to_positions[drone_id][0])
+				
 		for drone_id in self.drones_ids:
-			# Move the drone_id drone to the position in its index #
-			self.drones[drone_id].move(to_positions[drone_id][1], to_positions[drone_id][0])
-			
 			# Update the visited map #
 			"""it does it by taking the x and y data about the last waypoints explored for every vehicle and setting
 			that position to 1 in the visited_map"""
@@ -1388,7 +1392,7 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 
 		if drone_moved == True :
 			# Move the Drone fleet #
-			self.fleet.move_Drones(np.array(list(positions_Drone.values())))
+			self.fleet.move_Drones(positions_Drone)
 
 		
 		self.fleet.end_step_movements()

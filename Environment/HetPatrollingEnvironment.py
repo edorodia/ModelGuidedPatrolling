@@ -102,7 +102,7 @@ if __name__ == "__main__":
 					 
 			#generates the array of agents which follow the RandomDroneMover model
 			drone = {i: RandomDroneMover(world=scenario_map) for i in range(N_drones)}
-			
+			print(drone)
 			#while there is some agent which is not done yet
 			while not all(done_ASV.values()) and not all(done_Drone.values()):
 				

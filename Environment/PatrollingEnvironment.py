@@ -1485,43 +1485,40 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 
 	# dafault model is Miopic #
 	def update_model(self, ASV_moved: bool, drone_moved: bool):
-		""" Update the model """
 		
-		# Obtain all the new positions of the ASVs #
-		# positions = self.fleet.get_positions()
-		sample_positions_ASV = self.fleet.get_last_ASV_waypoints()
-		
-		# Obtain the values of the ground truth in the new ASV positions #
-		values_ASV = self.ground_truth.read(sample_positions_ASV)
-
-		# Obtain all the new positions of the Drones #
-		Drone_positions_dict = self.fleet.get_last_drone_waypoints()
-
-		Drone_squares_dict = self._get_sample_drone_positions(Drone_positions_dict)
-
+		""" Save previous model """
 		self.previous_model = self.model.predict().copy()
-		"""
-		for every drone's square get the ground_truth values and apply the noise model
-		"""
-		count_update = 0
-		for drone_id in Drone_squares_dict.keys():
-			# Get the ground truth values #
-			values_square = self.ground_truth.read(Drone_squares_dict[drone_id])
-			# Apply the noise mask #
-			drone_positions_list, values_Drone = self.DroneNoiseModel.mask(Drone_squares_dict[drone_id],values_square)
-			count_update += 1
-			self.model.update(from_ASV = ASV_moved, from_Drone = drone_moved, ASV_positions = sample_positions_ASV, ASV_values = values_ASV, Drone_positions = drone_positions_list, Drone_values = values_Drone)
 
-		
-		
-		# Update the model #
-		
-		#if self.model_str == 'deepUnet' or self.model_str == 'vaeUnet':
-		#	self.model.update(sample_positions, values, self.fleet.visited_map)
-		#else:
-			#print("Posizioni passate -> " + str(sample_positions))
-		
-		#self.model.update(sample_positions_ASV, values_ASV, sample_positions_Drone, values_Drone)
+		""" Update the model """
+
+		""" if there is new data from the ASVs """
+		if ASV_moved :
+			# Obtain all the new positions of the ASVs #
+			sample_positions_ASV = self.fleet.get_last_ASV_waypoints()
+			
+			# Obtain the values of the ground truth in the new ASV positions #
+			values_ASV = self.ground_truth.read(sample_positions_ASV)
+
+			self.model.update(from_ASV = True, from_Drone = False, ASV_positions = sample_positions_ASV, ASV_values = values_ASV)
+
+		""" if there is new data from the Drones """
+		if drone_moved :
+			# Obtain all the new positions of the Drones #
+			Drone_positions_dict = self.fleet.get_last_drone_waypoints()
+
+			Drone_squares_dict = self._get_sample_drone_positions(Drone_positions_dict)
+
+			count_update = 0
+
+			""" add the new drone data in the model for every drone """
+			for drone_id in Drone_squares_dict.keys():
+				# Get the ground truth values #
+				values_square = self.ground_truth.read(Drone_squares_dict[drone_id])
+				# Apply the noise mask #
+				drone_positions_list, values_Drone = self.DroneNoiseModel.mask(Drone_squares_dict[drone_id],values_square)
+				count_update += 1
+				#adds the new data of the drone_id
+				self.model.update(from_ASV = False, from_Drone = True, Drone_positions = drone_positions_list, Drone_values = values_Drone)
 	
 	def get_observations(self):
 		""" Observation function. The observation is composed by:

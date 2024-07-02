@@ -91,19 +91,16 @@ class TimedDiscreteModelBasedHetPatrolling :
 		drone_moved = False
 		actions_ASV = {}
 		positions_Drone = {}
-		asv_found = False
 		#select actions based of the time passed
 		for action in list_actions:
 			if action[0] == "ASV":
-				asv_found = True
 				self.file.write("ASV moved\n")
 				#action to take is the move of the ASV fleet
 				#gather the ASV action in the list of action to do in the step
 				asv_moved = True
-				print(action)
 				actions_ASV = dict(action[1])
 
-				#remove the old ASV action already taken from the time table
+				#removes the selected ASV action from the time table
 				del self.time_table[action]
 				
 			else:
@@ -113,30 +110,35 @@ class TimedDiscreteModelBasedHetPatrolling :
 				drone_moved = True
 				positions_Drone.update(dict(action[1]))
 
-				#remove the old Drone action already taken from the time table
+				#removes the selected Drone action from the time table 
 				del self.time_table[action]
 
-				#pick a new position for the drone
-				i = action[0]
-				if self.done_Drone[i] == False :
-					new_position = {i: self.drone[i].move(self.env.fleet.drones[i].position.astype(int))}
-
-					#puts the new action with the new time unit left in the time table
-					distance = np.linalg.norm(np.array(new_position[i]) - np.array(positions_Drone[action[0]]))
-					self.time_table[tuple([i, frozenset({i : tuple(new_position[i])}.items())])] = float(distance / self.speed_ratio)
+				
 
 		#executes the actions in the environment
 		observations, ASV_rewards, drone_rewards, self.done_ASV, self.done_Drone, info = self.env.step( actions_ASV = actions_ASV, 
 																								 		positions_Drone = positions_Drone,
 																										ASV_moved = asv_moved, 
 																										drone_moved = drone_moved)
-		if asv_found :
+		
+		if asv_moved :
 			#pick a new action and put it in the time table
 			new_actions = {i: self.agent[i].move(self.env.fleet.vehicles[i].position.astype(int)) for i in self.done_ASV.keys() if 
 				not self.done_ASV[i]}
 			
 			#puts the new action with the new time unit left in the time_table
 			self.time_table[tuple(["ASV", frozenset(new_actions.items())])] = float(self.env.movement_length)
+
+		if drone_moved :
+			#pick a new position for the drone
+			for key in positions_Drone.keys():
+				i = key
+				if self.done_Drone[i] == False :
+					new_position = {i: self.drone[i].move(self.env.fleet.drones[i].position.astype(int))}
+
+					#puts the new action with the new time unit left in the time table
+					distance = np.linalg.norm(np.array(new_position[i]) - self.env.fleet.drones[i].position.astype(int))
+					self.time_table[tuple([i, frozenset({i : tuple(new_position[i])}.items())])] = float(distance / self.speed_ratio)
 
 		for i in range(self.n_agents):
 				# If rewards dict does not contain the key, add it with 0 value #

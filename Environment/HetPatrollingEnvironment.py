@@ -116,6 +116,8 @@ if __name__ == "__main__":
 				actions_ASV = {i: agent[i].move(env.fleet.vehicles[i].position.astype(int)) for i in done_ASV.keys() if
 						   not done_ASV[i]}
 
+				secondfile.write("ASV moved -> " + str(actions_ASV) + "\n")
+
 				#picks an action for every drone that is not yet done
 				positions_drone = {i: drone[i].move(env.fleet.drones[i].position.astype(int)) for i in done_Drone.keys() if
 						   not done_Drone[i]}

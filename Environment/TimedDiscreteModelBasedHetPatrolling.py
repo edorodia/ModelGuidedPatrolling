@@ -64,30 +64,39 @@ class TimedDiscreteModelBasedHetPatrolling :
 			self.time_table[tuple([drone_id, frozenset({drone_id : tuple(self.positions_drone[drone_id])}.items())])] = float(distance / self.speed_ratio) 
    
 		plt.switch_backend('TkAgg')
+
+		self.file = open("Timed_Simulator_Metrics.txt", "w")
 		
 
 	def step(self):
-  
+
+		self.file.write("Step :-\n")
+
 		#find the minimum time value in the time table
 		min_value = min(self.time_table.values())
+
+		self.file.write(str(self.time_table) + "\n")
 
 		list_actions = []
 
 		#find all the other equal to the minimum values if there are some of them
 		for action, time in self.time_table.items():
-			self.time_table[action] = self.time_table[action] - min_value
 			if time == min_value:
 				list_actions.append(action)
+			self.time_table[action] = self.time_table[action] - min_value
+			
 
 		#for each element of the minimumns gather all the infos to make a global step at this time
 		asv_moved = False
 		drone_moved = False
 		actions_ASV = {}
 		positions_Drone = {}
-
+		asv_found = False
 		#select actions based of the time passed
 		for action in list_actions:
 			if action[0] == "ASV":
+				asv_found = True
+				self.file.write("ASV moved\n")
 				#action to take is the move of the ASV fleet
 				#gather the ASV action in the list of action to do in the step
 				asv_moved = True
@@ -97,12 +106,8 @@ class TimedDiscreteModelBasedHetPatrolling :
 				#remove the old ASV action already taken from the time table
 				del self.time_table[action]
 				
-				#pick a new action and put it in the time table
-				new_actions = {i: self.agent[i].move(self.env.fleet.vehicles[i].position.astype(int)) for i in self.done_ASV.keys() if not self.done_ASV[i]}
-			 
-			 	#puts the new action with the new time unit left in the time_table
-				self.time_table[tuple(["ASV", frozenset(new_actions.items())])] = float(self.env.movement_length)
 			else:
+				self.file.write("Drone moved -> " + str(dict(action[1])) + "\n" )
 				#action to take is the move of a drone of the Drones fleet
 				#gather the Drone action in the list of action to do in the step
 				drone_moved = True
@@ -117,14 +122,21 @@ class TimedDiscreteModelBasedHetPatrolling :
 					new_position = {i: self.drone[i].move(self.env.fleet.drones[i].position.astype(int))}
 
 					#puts the new action with the new time unit left in the time table
-					distance = self._drone_distance(new_position)
-					self.time_table[tuple([i, frozenset({i : tuple(new_position[i])}.items())])] = float(distance[i] / self.speed_ratio)
+					distance = np.linalg.norm(np.array(new_position[i]) - np.array(positions_Drone[action[0]]))
+					self.time_table[tuple([i, frozenset({i : tuple(new_position[i])}.items())])] = float(distance / self.speed_ratio)
 
 		#executes the actions in the environment
 		observations, ASV_rewards, drone_rewards, self.done_ASV, self.done_Drone, info = self.env.step( actions_ASV = actions_ASV, 
 																								 		positions_Drone = positions_Drone,
 																										ASV_moved = asv_moved, 
 																										drone_moved = drone_moved)
+		if asv_found :
+			#pick a new action and put it in the time table
+			new_actions = {i: self.agent[i].move(self.env.fleet.vehicles[i].position.astype(int)) for i in self.done_ASV.keys() if 
+				not self.done_ASV[i]}
+			
+			#puts the new action with the new time unit left in the time_table
+			self.time_table[tuple(["ASV", frozenset(new_actions.items())])] = float(self.env.movement_length)
 
 		for i in range(self.n_agents):
 				# If rewards dict does not contain the key, add it with 0 value #
@@ -144,19 +156,25 @@ class TimedDiscreteModelBasedHetPatrolling :
 		print("Done_Drone: ", self.done_Drone)
 		print("Info: ", info)
 		
-		plt.pause(0.2)
+		#plt.pause(0.2)
 		self.mse.append(info['mse'])
 
 	"""
 		runs an entire session of simulator till the drones and ASV reach the max distance
 	"""
 	def simulate(self):
+		counter = 0
+
 		#keeps going till every drone and ASV is finished
 		while not all(self.done_ASV.values()) and not all(self.done_Drone.values()):
+			counter += 1
 			self.step()
-
+		
+		self.file.write("Steps totali nella simulazione :- " + str(counter))
+		self.file.close()
 		plt.close()
 		plt.figure()
+		print(str(self.done_ASV) + " " + str(self.done_Drone))
 		print("Valore minimo mse -> " + str(min(self.mse)))
 		plt.plot(self.mse)
 		plt.show()

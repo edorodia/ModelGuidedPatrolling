@@ -27,6 +27,10 @@ if __name__ == "__main__":
 		# OK #
 		#swtich to a more interactive rendering backend for the plots
 		plt.switch_backend('TkAgg')
+
+		secondfile = open("Metrics_NotTimedSimulation.txt", "w")
+
+		counter = 0
 		
 		# OK #
 		from HetPathPlanners.RandomMover import RandomDroneMover, RandomVehicleMover
@@ -105,7 +109,9 @@ if __name__ == "__main__":
 			print(drone)
 			#while there is some agent which is not done yet
 			while not all(done_ASV.values()) and not all(done_Drone.values()):
-				
+
+				counter += 1
+
 				#picks an action for every vehicle that is not yet done
 				actions_ASV = {i: agent[i].move(env.fleet.vehicles[i].position.astype(int)) for i in done_ASV.keys() if
 						   not done_ASV[i]}
@@ -113,6 +119,8 @@ if __name__ == "__main__":
 				#picks an action for every drone that is not yet done
 				positions_drone = {i: drone[i].move(env.fleet.drones[i].position.astype(int)) for i in done_Drone.keys() if
 						   not done_Drone[i]}
+				
+				secondfile.write("Drone moved -> " + str(positions_drone) + "\n")
 				
 				#executes the actions in the environment, it has to execute them in the right moment depending on the quickness of the drone
 				observations, ASV_rewards, drone_rewards, done_ASV, done_Drone, info = env.step(actions_ASV, positions_drone, True, True)
@@ -144,7 +152,10 @@ if __name__ == "__main__":
 			
 			#prints the duration of the process
 			print("Time: ", time.time() - t0)
-			
+
+			secondfile.write("Total steps in the simulation :- " + str(counter))
+			secondfile.close()
+
 			plt.close()
 			plt.figure()
 			print("Valore minimo mse -> " + str(min(mse)))

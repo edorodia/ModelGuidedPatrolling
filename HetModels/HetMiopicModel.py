@@ -33,7 +33,7 @@ class HetMiopicModel(HetBaseModel):
 			if self.influence_radius != 0:
 				for i in range(len(ASV_positions)):
 					# Compute all the distances between visitable positions and the positions of the i-th robot
-					distances = np.linalg.norm(self.visitable_positions - ASV_positions[i].astype(int), axis=1).astype(int)
+					distances = np.linalg.norm(self.visitable_positions - ASV_positions[i].astype(int), axis=1).astype(float)
 					# Get the positions that are closer than influence_radius
 					positions = self.visitable_positions[distances <= self.influence_radius]
 					# Set the positions to y

@@ -1376,6 +1376,8 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 	"""
 	def step(self, actions_ASV: dict, positions_Drone: dict, ASV_moved: bool, drone_moved: bool, action_type_ASV='discrete'):
 		
+		ASV_rewards = {}
+		drone_rewards = {}
 		
 		#converts action integer number to movement (angle and length)
 		if action_type_ASV == 'discrete':

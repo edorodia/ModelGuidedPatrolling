@@ -48,6 +48,7 @@ mask = np.genfromtxt('Environment/Maps/map.txt', delimiter=' ')
 print("Shape of the dataset: ", dataset.trajectories.shape)
 
 # Create the dataloader
+""" Wrapper to wrap dataset and have an easier to explore dataset """
 dataloader = DataLoader(dataset, batch_size = args.batch_size, shuffle = True, num_workers = 0, )
 dataloader_test = DataLoader(dataset_test, batch_size = args.batch_size, shuffle = True, num_workers = 0)
 

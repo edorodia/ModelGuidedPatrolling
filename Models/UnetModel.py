@@ -26,10 +26,12 @@ class UnetDeepModel:
 		self.pre_model = MiopicModel(navigation_map, influence_radius, resolution, dt)
 		# Create the model
 		self.model = UNet(n_channels_in=2, n_channels_out=1, bilinear=False, scale=2).to(device)
-		# Import the model
+		# Import the model (loads a pretrained model state dictionary from file)
 		self.model.load_state_dict(th.load(model_path))
+		#Sets the model in evaluation mode
 		self.model.eval()
 
+		# Sets the map where to work, the navigation map
 		self.model_map = np.zeros_like(self.navigation_map)
 
 	def update(self, x: np.ndarray, y: np.ndarray, t: np.ndarray = None):
@@ -41,7 +43,9 @@ class UnetDeepModel:
 
 		with th.no_grad():
 			# Feed the model
+			# Visited_map
 			input_tensor_0 = th.from_numpy(t).unsqueeze(0).unsqueeze(0).to(self.device).float()
+			# Knowledge acquired till now by the ASVs
 			input_tensor_1 = th.from_numpy(pre_model_map).unsqueeze(0).unsqueeze(0).to(self.device).float()
 			# Stack using the dim 1
 			input_tensor = th.cat((input_tensor_0, input_tensor_1), dim=1)
@@ -49,7 +53,8 @@ class UnetDeepModel:
 			output_tensor = self.model(input_tensor)
 			# Get the numpy array
 			model_map = output_tensor.squeeze(0).squeeze(0).cpu().detach().numpy() * self.navigation_map
-			model_map[self.pre_model.X[:, 0], self.pre_model.X[:, 1]] = self.pre_model.Y
+			# overrides with the correct data in the already explored parts
+			model_map[self.pre_model.x[:, 0], self.pre_model.x[:, 1]] = self.pre_model.y
 			self.model_map = model_map
 
 	def predict(self):

@@ -12,3 +12,4 @@ torchaudio
 scikit-learn
 deap
 optuna
+cmasher

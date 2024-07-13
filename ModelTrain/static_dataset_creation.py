@@ -28,7 +28,8 @@ argparser.add_argument('--n_agents', type=int, default=4)
 argparser.add_argument('--frameskip', type=int, default=1)
 argparser.add_argument('--max_frames', type=int, default=100)
 argparser.add_argument('--N_episodes', type=int, default=3)
-argparser.add_argument('--parallel', type=bool, default=False)
+#if the argument is a string, even "false" then bool('False') returns True giving parallel a True value
+argparser.add_argument('--parallel', action='store_true')
 argparser.add_argument('--benchmark', type=str, default='algae_bloom', choices=['algae_bloom', 'shekel'])
 argparser.add_argument('--set', type=str, default='test', choices=['train', 'test'])
 argparser.add_argument('--random', type=bool, default=False)
@@ -50,9 +51,7 @@ initial_positions = np.array([[42,32],
 							[43,44],
 							[35,45]])
 
-
 def generate_trajectory(seed):
-
 
 	if parallel:
 		np.random.seed(seed)
@@ -64,13 +63,13 @@ def generate_trajectory(seed):
 								model_based=True,
 								movement_length=2,
 								resolution=1,
-								influence_radius=0,
-								forgetting_factor=2,
-								max_distance=200,
+								influence_radius=2,
+								forgetting_factor=0.01,
+								max_distance=400,
 								benchmark=args.benchmark,
 								dynamic=False,
 								reward_weights=[10.0, 100.0],
-								reward_type='local_changes',
+								reward_type='weighted_idleness',
 								model='miopic',
 								seed=seed,)
 
@@ -94,7 +93,6 @@ def generate_trajectory(seed):
 	frame_number = np.random.choice(np.arange(0, max_frames), size = max_frames//frameskip, replace=False)
 	
 	while t < max_frames + 1:
-
 		actions = {i: agent[i].move(env.fleet.vehicles[i].position.astype(int)) for i in done.keys() if not done[i]}
 		_,_,done,_ = env.step(actions)
 
@@ -117,7 +115,7 @@ def generate_trajectory(seed):
 	model_list = np.asarray(model_list)
 
 	observation_trajectory = np.stack((W_list, model_list), axis=1)
-
+	
 	# print("Hi! I'm process {} and I'm done!".format(seed))
 
 	return observation_trajectory, ground_truth
@@ -140,7 +138,8 @@ if __name__ == "__main__":
 		# Create a Pool of sub-processes
 		pool = mp.Pool(2)
 		# Generate the trajectories in parallel imap returns an iterator
-		trajectories = pool.imap(generate_trajectory, range(seed_start, seed_end))
+		#Careful imap should return an iterable that you need to elaborate to extract useful information about trajectories
+		trajectories = list(pool.imap(generate_trajectory, range(seed_start, seed_end)))
 		# Close the pool
 		pool.close()
 	

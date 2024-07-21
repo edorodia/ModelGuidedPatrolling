@@ -103,7 +103,31 @@ class shekel(object):
         if position is None:
             return self.normalized_z
         else:
-            return self.normalized_z[position[: , 0].astype(int), position[: , 1].astype(int)]
+
+            # Extract rows and columns from positions
+            rows = position[:, 0]
+            cols = position[:, 1]
+
+            # Check if the indices are within bounds
+            row_mask = (rows >= 0) & (rows < self.normalized_z.shape[0])
+            col_mask = (cols >= 0) & (cols < self.normalized_z.shape[1])
+
+            # Combined mask for both row and column bounds
+            valid_mask = row_mask & col_mask
+
+            # Initialize result array with zeros
+            result = np.zeros(len(position))
+
+            # Extract valid indices
+            valid_rows = rows[valid_mask]
+            valid_cols = cols[valid_mask]
+
+            # Use valid indices to fetch values from normalized_z
+            result[valid_mask] = self.normalized_z[valid_rows, valid_cols]
+
+            return result
+
+            #return self.normalized_z[position[: , 0].astype(int), position[: , 1].astype(int)]
 
     def render(self):
 

@@ -3,13 +3,15 @@ sys.path.append('.')
 from Models.VAE import VAE
 from PathPlanners.LawnMower import LawnMowerAgent
 from PathPlanners.NRRA import WanderingAgent
-from Environment.PatrollingEnvironment import DiscreteModelBasedPatrolling
+from Environment.PatrollingEnvironment import DiscreteModelBasedHetPatrolling
+from Environment.TimedDiscreteModelBasedHetPatrolling import TimedDiscreteModelBasedHetPatrolling
 import numpy as np
 import multiprocessing as mp
 from tqdm import tqdm
 from torch.utils.data import Dataset, DataLoader
 import torch as th
 import argparse
+from HetPathPlanners.RandomMover import RandomDroneMover, RandomVehicleMover
 
 # Define the parameters of the environment
 
@@ -25,6 +27,7 @@ argparser = argparse.ArgumentParser()
 # argparser.add_argument('--random', type=bool, default=False)
 
 argparser.add_argument('--n_agents', type=int, default=4)
+argparser.add_argument('--n_drones', type=int, default=1)
 argparser.add_argument('--frameskip', type=int, default=1)
 argparser.add_argument('--max_frames', type=int, default=100)
 argparser.add_argument('--N_episodes', type=int, default=3)
@@ -34,22 +37,42 @@ argparser.add_argument('--benchmark', type=str, default='shekel', choices=['alga
 argparser.add_argument('--set', type=str, default='train', choices=['train', 'test'])
 argparser.add_argument('--random', type=bool, default=False)
 
+###
+"""	ADD THE PARAMETERS FOR THE NOISE MODEL and SPEED RATIO
+	this two parameters have influence on the visited map and the importance read 
+	in the noise models there is also the fisheye one where we can choose the width of the central square where data stay true to ground truth
+	this can be parametrized"""
+###
+argparser.add_argument('--drone_noise', type=str, default='NoNoise', choices=['FishEyeNoise', 'MeanNoise', 'NoNoise'])
+argparser.add_argument('--no_noise_side', type = int, default=None)
+argparser.add_argument('--speed_ratio', type=float, default=11.67)
+
 args = argparser.parse_args()
+
+if args.no_noise_side is None:
+	if args.drone_noise == 'FishEyeNoise':
+		argparser.error("When --drone_noise id 'FishEyeNoise' --no_noise_side must be set")
 
 navigation_map = np.genfromtxt('Environment/Maps/map.txt', delimiter=' ')
 
-N = args.n_agents
+N_ASV = args.n_agents
+N_DRONES = args.n_drones
 frameskip = args.frameskip
 max_frames = args.max_frames
 N_episodes = args.N_episodes
 parallel = args.parallel
 benchmark = args.benchmark
 dataset = args.set
+drone_noise = args.drone_noise
+no_noise_side = args.no_noise_side
+speed_ratio = args.speed_ratio
 
-initial_positions = np.array([[42,32],
-							[50,40],
-							[43,44],
-							[35,45]])
+initial_ASV_positions = np.array([[42, 32],
+									  [50, 40],
+									  [43, 44],
+									  [35, 45]])
+		
+initial_drone_position = np.array([[16,24]])
 
 def generate_trajectory(seed):
 
@@ -57,31 +80,53 @@ def generate_trajectory(seed):
 		np.random.seed(seed)
 
 	""" Play a game with the environment and return the trajectory of the agents and the ground truth """
-	env = DiscreteModelBasedPatrolling(n_agents=N,
-								navigation_map=navigation_map,
-								initial_positions=initial_positions,
-								model_based=True,
-								movement_length=2,
-								resolution=1,
-								influence_radius=2,
-								forgetting_factor=0.01,
-								max_distance=400,
-								benchmark=args.benchmark,
-								dynamic=False,
-								reward_weights=[10.0, 100.0],
-								reward_type='weighted_idleness',
-								model='miopic',
-								seed=seed,)
+	patrollingModel = DiscreteModelBasedHetPatrolling( initial_air_positions = initial_drone_position,
+					max_air_distance = 1000,
+					influence_side = 9,
+					forgetting_air_factor = 0.01,	
+					drone_idleness_influence = 0.20,
+					n_agents = N_ASV,
+					navigation_map = navigation_map,
+					initial_positions = initial_ASV_positions,
+					model_based = True,
+					movement_length = 2,
+					resolution = 1,
+					max_distance = 400,
+					influence_radius = 2,
+					forgetting_factor= 0.01,
+					reward_drone_type='weighted_idleness',
+					reward_type='weighted_idleness',
+					reward_weights=[10, 10],
+					benchmark = args.benchmark,
+					model = 'miopic',
+					dynamic = False,
+					seed = 50000,
+					int_observation = True,
+					previous_exploration = False,
+					pre_exploration_policy = None,
+					pre_exploration_steps = 0, 
+					camera_fov_angle = 160,						
+					drone_height = 120,							
+					n_drones = N_DRONES,									
+					drone_direct_idleness_influece = False,		
+					blur_data = False,
+					drone_noise = drone_noise,
+					fisheye_side = no_noise_side,
+					update_only_with_ASV=False
+					)
+	
+	timedEnv = TimedDiscreteModelBasedHetPatrolling(	env = patrollingModel,
+												speed_ratio = speed_ratio,
+												asv_path_planner = RandomVehicleMover,
+												drone_path_planner = RandomDroneMover,
+												no_render = True,
+												no_print = True)
 
-
-	env.reset()
-	done = {i: False for i in range(N)}
-
-	#agent = {i: LawnMowerAgent( world=map, number_of_actions=8, movement_length= 3, forward_direction=0, seed=0) for i in range(N)}
-	agent = {i: WanderingAgent( world=navigation_map, number_of_actions=8, movement_length= 3, seed=seed) for i in range(N)}
+	
+	
 
 	# Get the ground truth
-	ground_truth = env.ground_truth.read().copy()
+	ground_truth = timedEnv.env.ground_truth.read().copy()
 
 	# W
 	W_list = []
@@ -93,17 +138,25 @@ def generate_trajectory(seed):
 	frame_number = np.random.choice(np.arange(0, max_frames), size = max_frames//frameskip, replace=False)
 	
 	while t < max_frames + 1:
-		actions = {i: agent[i].move(env.fleet.vehicles[i].position.astype(int)) for i in done.keys() if not done[i]}
-		_,_,done,_ = env.step(actions)
+		
+		timedEnv.step()
 
 		# Get the ground truth
 
+		# Extracts the frames from the random range from 0 to max_Frames calculated earlier
 		if t in frame_number and args.random:
-			W_list.append(env.fleet.visited_map.copy())
-			model_list.append(env.model.predict().copy())
+			ASV_visited_map = timedEnv.env.fleet.visited_map.copy()
+			Drone_visited_map = timedEnv.env.fleet.visited_air_map.copy()
+			W_list.append(np.logical_or(ASV_visited_map, Drone_visited_map))
+			#W_list.append(timedEnv.env.fleet.visited_map.copy())
+			model_list.append(timedEnv.env.model.predict().copy())
+		#in this case there isn't the random flag active, this means that regularly, every frameskip, a frame is extracted
 		elif t % frameskip == 0 and not args.random:
-			W_list.append(env.fleet.visited_map.copy())
-			model_list.append(env.model.predict().copy())
+			ASV_visited_map = timedEnv.env.fleet.visited_map.copy()
+			Drone_visited_map = timedEnv.env.fleet.visited_air_map.copy()
+			W_list.append(np.logical_or(ASV_visited_map, Drone_visited_map))
+			#W_list.append(timedEnv.env.fleet.visited_map.copy())
+			model_list.append(timedEnv.env.model.predict().copy())
 
 
 		t += 1

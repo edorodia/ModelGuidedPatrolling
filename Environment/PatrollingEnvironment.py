@@ -1086,7 +1086,7 @@ class DiscreteModelBasedPatrolling:
 		
 		else:
 			raise NotImplementedError('Unknown reward type')
-		print(reward)
+		#print(reward)
 		return reward
 	
 	def get_done(self):
@@ -1594,7 +1594,7 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 		
 		else:
 			raise NotImplementedError('Unknown reward type')
-		print(reward)
+		#print(reward)
 		return reward
 
 	def get_done(self):
@@ -1622,7 +1622,10 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 		mean_ASV_idleness = np.sum(self.fleet.idleness_map)/np.sum(self.navigation_map)
 		mean_ASV_weighted_idleness = np.sum(self.fleet.idleness_map * self.ground_truth.read())/np.sum(self.navigation_map)
 		coverage_ASV_percentage = np.sum(self.fleet.visited_map) / np.sum(self.navigation_map)
-		true_reward = np.sum([self.true_reward[agent_id] for agent_id in self.fleet.vehicles_ids])
+		if self.true_reward != {}:
+			true_reward = np.sum([self.true_reward[agent_id] for agent_id in self.fleet.vehicles_ids])
+		else:
+			true_reward = 0
 
 		total_average_drone_distance = np.mean([drn.distance for drn in self.fleet.drones])
 		mean_air_idleness = np.sum(self.fleet.idleness_air_map)/np.sum(self.navigation_map)

@@ -16,14 +16,18 @@ drone_path_planner:			object that generates the drone position where to move to
 """
 class TimedDiscreteModelBasedHetPatrolling :
 	def __init__(   self,
-					env:                       DiscreteModelBasedHetPatrolling,
+					env:          DiscreteModelBasedHetPatrolling,
 					speed_ratio:  float,
 					asv_path_planner,
-					drone_path_planner):
+					drone_path_planner,
+					no_render: bool = False,
+					no_print: bool = False):
 		
 		self.speed_ratio = speed_ratio
 		self.env = env
 		self.env.eval = True
+		self.no_render = no_render
+		self.no_print = no_print
 		self.env.reset()
 		
 		self.n_agents = self.env.n_agents
@@ -67,7 +71,10 @@ class TimedDiscreteModelBasedHetPatrolling :
 
 		self.file = open("Timed_Simulator_Metrics.txt", "w")
 		
+	def check_ending(self):
+		return (not all(self.done_ASV.values()) and not all(self.done_Drone.values()))
 
+	#single environment step
 	def step(self):
 
 		self.file.write("Step :-\n")
@@ -149,14 +156,16 @@ class TimedDiscreteModelBasedHetPatrolling :
 			# If rewards dict does not contain the key, add it with 0 value #
 			if i not in drone_rewards.keys():
 				drone_rewards[i] = 0
-			
-		self.env.render()
 		
-		print("ASV_rewards: ", ASV_rewards)
-		print("drone_rewards: ", drone_rewards)
-		print("Done_ASV: ", self.done_ASV)
-		print("Done_Drone: ", self.done_Drone)
-		print("Info: ", info)
+		if self.no_render == False:
+			self.env.render()
+		
+		if self.no_print == False:
+			print("ASV_rewards: ", ASV_rewards)
+			print("drone_rewards: ", drone_rewards)
+			print("Done_ASV: ", self.done_ASV)
+			print("Done_Drone: ", self.done_Drone)
+			print("Info: ", info)
 		
 		#plt.pause(0.2)
 		self.mse.append(info['mse'])
@@ -164,7 +173,7 @@ class TimedDiscreteModelBasedHetPatrolling :
 	"""
 		runs an entire session of simulator till the drones and ASV reach the max distance
 	"""
-	def simulate(self):
+	def simulate_toEnd(self):
 		counter = 0
 
 		#keeps going till every drone and ASV is finished
@@ -172,12 +181,12 @@ class TimedDiscreteModelBasedHetPatrolling :
 			counter += 1
 			self.step()
 		
-		self.file.write("Steps totali nella simulazione :- " + str(counter))
+		self.file.write("Total steps in simulation :- " + str(counter))
 		self.file.close()
 		plt.close()
 		plt.figure()
 		print(str(self.done_ASV) + " " + str(self.done_Drone))
-		print("Valore minimo mse -> " + str(min(self.mse)))
+		print("Minimum mse -> " + str(min(self.mse)))
 		plt.plot(self.mse)
 		plt.show()
 
@@ -245,7 +254,7 @@ if __name__ == "__main__" :
 															asv_path_planner = RandomVehicleMover,
 															drone_path_planner = RandomDroneMover)
 
-		simulator.simulate()
+		simulator.simulate_toEnd()
 	except KeyboardInterrupt:
 		print("Interrupted")
 		plt.close()

@@ -1,4 +1,4 @@
-import os
+from npy_append_array import NpyAppendArray
 import sys
 sys.path.append('.')
 from Models.VAE import VAE
@@ -13,29 +13,6 @@ from torch.utils.data import Dataset, DataLoader
 import torch as th
 import argparse
 from HetPathPlanners.RandomMover import RandomDroneMover, RandomVehicleMover
-
-def save_and_concatenate_mmap(file_name, new_data):
-    # Check if the file exists
-    if os.path.exists(file_name):
-        # Load the shape and dtype of the existing data
-        with open(file_name, 'rb') as f:
-            major, minor = np.lib.format.read_magic(f)
-            shape, fortran_order, dtype = np.lib.format._read_array_header(f, version=(major, minor))
-            offset = f.tell()
-        # Calculate the new shape
-        new_shape = (shape[0] + new_data.shape[0],) + shape[1:]
-        
-        # Open a memory-mapped array with the new shape
-        fp = np.memmap(file_name, dtype=dtype, mode='r+', shape=new_shape)
-        # Append the new data to the memory-mapped array
-        fp[shape[0]:] = new_data
-    else:
-        # If the file does not exist, create it with the new data
-        np.save(file_name, new_data)
-    
-    # Flush the changes to disk
-    if 'fp' in locals():
-        del fp
 
 # Define the parameters of the environment
 
@@ -194,8 +171,6 @@ def generate_trajectory(seed):
 	
 	# print("Hi! I'm process {} and I'm done!".format(seed))
 
-	print(timedEnv.env.fleet.vehicles[2].waypoints)
-
 	return observation_trajectory, ground_truth
 
 
@@ -225,30 +200,32 @@ if __name__ == "__main__":
 
 		file_name_traj = 'ModelTrain/Data/trajectories_' + benchmark + '_' + dataset + '.npy'
 		file_name_gts = 'ModelTrain/Data/gts_' + benchmark + '_' + dataset + '.npy'
-		"""
-		for i in tqdm(range(seed_start, seed_end)):
-			trajectorie = generate_trajectory(i)
-			gts = np.asarray([trajectorie[1]])
-			observations = np.asarray([trajectorie[0]])
-			save_and_concatenate_mmap(file_name_traj, observations)
-			save_and_concatenate_mmap(file_name_gts, gts)
-		"""
+		
+		with NpyAppendArray(file_name_gts, delete_if_exists=True) as fnGTS, NpyAppendArray(file_name_traj, delete_if_exists=True) as fnTRAJ:
+			for i in tqdm(range(seed_start, seed_end)):
+				trajectorie = generate_trajectory(i)
+				gts = np.asarray([trajectorie[1]])
+				observations = np.asarray([trajectorie[0]])
+				fnGTS.append((gts* 255.0).astype(np.uint8))
+				fnTRAJ.append((observations * 255.0).astype(np.uint8))
+		
 
-		trajectories = [generate_trajectory(i) for i in tqdm(range(seed_start, seed_end))]
+		#trajectories = [generate_trajectory(i) for i in tqdm(range(seed_start, seed_end))]
 
 	"""for obs, gt in trajectories:
 		gts = np.asarray(gt)
 		observations = np.asarray(obs)"""
 
-	gts = np.asarray([traj[1] for traj in trajectories])
-	observations = np.asarray([traj[0] for traj in trajectories])
+	#gts = np.asarray([traj[1] for traj in trajectories])
+	#observations = np.asarray([traj[0] for traj in trajectories])
 
 	# Save the trajectories 
-
+	"""
 	file_name = 'ModelTrain/Data/trajectories_' + benchmark + '_' + dataset + '.npy'
 	np.save(file_name, (observations * 255.0).astype(np.uint8))
 	file_name = 'ModelTrain/Data/gts_' + benchmark + '_' + dataset + '.npy'
 	np.save(file_name, (gts* 255.0).astype(np.uint8))
+	"""
 
 
 

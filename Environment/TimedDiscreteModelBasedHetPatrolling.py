@@ -234,7 +234,7 @@ if __name__ == "__main__" :
 					benchmark = 'shekel',
 					model = 'miopic',
 					dynamic = False,
-					seed = 50000,
+					seed = 2,
 					int_observation = True,
 					previous_exploration = False,
 					pre_exploration_policy = None,
@@ -250,7 +250,7 @@ if __name__ == "__main__" :
 					)
 		
 		simulator = TimedDiscreteModelBasedHetPatrolling(	env = env,
-															speed_ratio = 4.0,						#the drone is 4 times quicker than the ASV
+															speed_ratio = 11.67,						#the drone is 4 times quicker than the ASV
 															asv_path_planner = RandomVehicleMover,
 															drone_path_planner = RandomDroneMover)
 

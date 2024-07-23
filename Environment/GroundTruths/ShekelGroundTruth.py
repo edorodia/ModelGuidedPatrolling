@@ -123,7 +123,7 @@ class shekel(object):
             valid_cols = cols[valid_mask]
 
             # Use valid indices to fetch values from normalized_z
-            result[valid_mask] = self.normalized_z[valid_rows, valid_cols]
+            result[valid_mask] = self.normalized_z[valid_rows.astype(int), valid_cols.astype(int)]
 
             return result
 

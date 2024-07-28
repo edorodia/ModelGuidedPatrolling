@@ -16,10 +16,10 @@ import argparse
 # Define the parameters of the environment
 argparser = argparse.ArgumentParser()
 
-argparser.add_argument('--benchmark', type=str, default='algae_bloom', choices=['algae_bloom', 'shekel'])
+argparser.add_argument('--benchmark', type=str, default='shekel', choices=['algae_bloom', 'shekel'])
 argparser.add_argument('--epochs', type=int, default=30)
 argparser.add_argument('--batch_size', type=int, default=64)
-argparser.add_argument('--lr', type=float, default=7e-4)
+argparser.add_argument('--lr', type=float, default=1e-3)
 argparser.add_argument('--weight_decay', type=float, default=0)
 argparser.add_argument('--device', type=str, default='cuda:0', choices=['cuda:0', 'cuda:1', 'cpu']) 
 argparser.add_argument('--scale', type=int, default=2) 

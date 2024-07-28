@@ -286,7 +286,8 @@ class CoordinatedFleet:
 	             navigation_map: np.ndarray,
 	             total_max_distance: float,
 	             influence_radius: float,
-	             forgetting_factor: float
+	             forgetting_factor: float,
+				 influence_asv_visited_map: bool = False
 	             ):
 		
 		self.navigation_map = navigation_map
@@ -294,10 +295,16 @@ class CoordinatedFleet:
 		self.total_max_distance = total_max_distance
 		self.n_vehicles = n_vehicles
 		self.forgetting_factor = forgetting_factor
+
+		self.influence_radius = influence_radius
 		
+		self.influence_asv_visited_map = influence_asv_visited_map
+
 		self.idleness_map = np.ones_like(self.navigation_map)
 		self.idleness_map_ = np.ones_like(self.navigation_map)
 		self.changes_in_idleness = np.zeros_like(self.navigation_map)
+
+		self.visitable_positions = np.array(np.where(self.navigation_map == 1)).T
 		
 		# Create the fleet #
 		self.vehicles = [Vehicle(initial_positions=self.initial_positions[i],
@@ -316,8 +323,11 @@ class CoordinatedFleet:
 		self.visited_map = np.zeros_like(self.navigation_map)
 		for vehicle in self.vehicles:
 			vehicle.reset()
+			"""
+			first position is not signed in the visited_map because there is no corresponding importance read
 			self.visited_map[vehicle.position[0].astype(int), vehicle.position[1].astype(int)] = 1
-		
+			"""
+			
 		self.idleness_map = np.ones_like(self.navigation_map)
 		self.idleness_map_ = np.ones_like(self.navigation_map)
 	
@@ -342,11 +352,43 @@ class CoordinatedFleet:
 				self.vehicles[vehicle_id].move_to_position(movements[vehicle_id])
 			
 			# Update the visited map #
-			"""it does it by taking the x and y data about the last waypoints explored for every vehicle and setting
-			that position to 1 in the visited_map"""
-			self.visited_map[
-				self.vehicles[vehicle_id].last_waypoints[:, 0].astype(int),
-				self.vehicles[vehicle_id].last_waypoints[:, 1].astype(int)] = 1
+			if self.influence_asv_visited_map and self.influence_radius != 0:
+				#tracks the influence radius if there is an influence radius and the flag is set
+				positions_veh = self.vehicles[vehicle_id].last_waypoints.astype(int)
+				for i in range(len(positions_veh)):
+					# Compute all the distances between visitable positions and the positions of the i-th robot
+					distances = np.linalg.norm(self.visitable_positions - positions_veh[i].astype(int), axis=1).astype(float)
+					# Get the positions that are closer than influence_radius
+					positions = self.visitable_positions[distances <= self.influence_radius]
+
+					# Extract rows and columns from positions
+					rows = positions[:, 0]
+					cols = positions[:, 1]
+
+					# Check if the indices are within bounds
+					row_mask = (rows >= 0) & (rows < self.visited_air_map.shape[0])
+					col_mask = (cols >= 0) & (cols < self.visited_air_map.shape[1])
+
+					# Combined mask for both row and column bounds
+					valid_mask = row_mask & col_mask
+
+					# Extract valid indices
+					valid_rows = rows[valid_mask]
+					valid_cols = cols[valid_mask]
+
+					# Set the positions to y
+					# Sets the positions under the influence radius to the values discovered
+					self.visited_map[positions[:,0], positions[:,1]] = 1
+				
+				#this is what is done if there is no influence radius every position in the model map gets it corresponding value withouth considering the radius
+				self.visited_map[positions_veh[:,0].astype(int), positions_veh[:,1].astype(int)] = 1
+			else:
+				#tracks only the real positions
+				"""it does it by taking the x and y data about the last waypoints explored for every vehicle and setting
+				that position to 1 in the visited_map"""
+				self.visited_map[
+					self.vehicles[vehicle_id].last_waypoints[:, 0].astype(int),
+					self.vehicles[vehicle_id].last_waypoints[:, 1].astype(int)] = 1
 		
 		self.update_idleness_map()
 	
@@ -473,24 +515,28 @@ class CoordinatedHetFleet(CoordinatedFleet):
 				 drone_idleness_influence: float,		
 				 drone_direct_idleness_influece: bool,					
 				 n_drones: int,
-				 update_only_with_ASV: bool):						
+				 update_only_with_ASV: bool,
+				 influence_drone_visited_map: bool,
+				 influence_asv_visited_map: bool):						
 
 		super().__init__(n_vehicles, 
 				       initial_surface_positions,
 					   navigation_map,
 					   total_max_surface_distance,
 					   influence_radius,
-					   forgetting_factor)
+					   forgetting_factor,
+					   influence_asv_visited_map = influence_asv_visited_map)
 
 		self.total_max_air_distance = total_max_air_distance
 		self.initial_air_positions = initial_air_positions
 		self.air_forgetting_factor = air_forgetting_factor
 		self.drone_direct_idleness_influece = drone_direct_idleness_influece
 		self.drone_idleness_influence = drone_idleness_influence
-
+		self.influence_side = influence_side
 		self.n_drones = n_drones
 
 		self.update_only_with_ASV = update_only_with_ASV
+		self.influence_drone_visited_map = influence_drone_visited_map
 		self.air_idleness_edited = False 
 
 		self.idleness_air_map = np.ones_like(self.navigation_map)
@@ -513,10 +559,51 @@ class CoordinatedHetFleet(CoordinatedFleet):
 
 		self.drones_ids = set(range(self.n_drones))
 		self.visited_air_map = np.zeros_like(self.navigation_map)
+		
 		for drone in self.drones:
 			drone.reset()
-			self.visited_air_map[drone.position[0].astype(int), drone.position[1].astype(int)] = 1
-		
+		"""
+			this part is commented out because otherwise at reset, the visited air map would have a drone square without making the importance read in the ground truth causing a difference between two metrics importance and visited map 
+			if self.influence_drone_visited_map :
+				offset = self.influence_side/2
+
+				position = drone.position.astype(int)
+			
+				column_start = int(np.ceil(position[1] - offset))
+				row_start 	 = int(np.ceil(position[0] - offset))
+
+				column_end 	 = int(np.floor(position[1] + offset))
+				row_end 	 = int(np.floor(position[0] + offset))
+
+				column_grid  = np.arange(column_start, column_end + 1)
+				row_grid     = np.arange(row_start, row_end + 1)
+
+				grid1, grid2 = np.meshgrid(row_grid, column_grid)
+
+				positions = np.column_stack((grid1.ravel(), grid2.ravel()))
+
+				# Extract rows and columns from positions
+				rows = positions[:, 0]
+				cols = positions[:, 1]
+
+				# Check if the indices are within bounds
+				row_mask = (rows >= 0) & (rows < self.visited_air_map.shape[0])
+				col_mask = (cols >= 0) & (cols < self.visited_air_map.shape[1])
+
+				# Combined mask for both row and column bounds
+				valid_mask = row_mask & col_mask
+
+				# Initialize result array with zeros
+				result = np.zeros(len(positions))
+
+				# Extract valid indices
+				valid_rows = rows[valid_mask]
+				valid_cols = cols[valid_mask]
+
+				self.visited_air_map[valid_rows.astype(int), valid_cols.astype(int)] = 1
+			else :
+				self.visited_air_map[drone.position[0].astype(int), drone.position[1].astype(int)] = 1
+		"""
 		self.idleness_air_map = np.ones_like(self.navigation_map)
 		self.idleness_air_map_ = np.ones_like(self.navigation_map)
 
@@ -546,9 +633,50 @@ class CoordinatedHetFleet(CoordinatedFleet):
 			# Update the visited map #
 			"""it does it by taking the x and y data about the last waypoints explored for every vehicle and setting
 			that position to 1 in the visited_map"""
-			self.visited_air_map[
-				self.drones[drone_id].last_waypoints[:, 0].astype(int),
-				self.drones[drone_id].last_waypoints[:, 1].astype(int)] = 1
+			
+			if self.influence_drone_visited_map :
+
+				positions = self.drones[drone_id].last_waypoints.astype(int)
+				
+				for position in positions:
+
+					offset = self.influence_side/2
+				
+					column_start = int(np.ceil(position[1] - offset))
+					row_start 	 = int(np.ceil(position[0] - offset))
+
+					column_end 	 = int(np.floor(position[1] + offset))
+					row_end 	 = int(np.floor(position[0] + offset))
+
+					column_grid  = np.arange(column_start, column_end + 1)
+					row_grid     = np.arange(row_start, row_end + 1)
+
+					grid1, grid2 = np.meshgrid(row_grid, column_grid)
+
+					final_pos = np.column_stack((grid1.ravel(), grid2.ravel()))
+
+					# Extract rows and columns from positions
+					rows = final_pos[:, 0]
+					cols = final_pos[:, 1]
+
+					# Check if the indices are within bounds
+					row_mask = (rows >= 0) & (rows < self.visited_air_map.shape[0])
+					col_mask = (cols >= 0) & (cols < self.visited_air_map.shape[1])
+
+					# Combined mask for both row and column bounds
+					valid_mask = row_mask & col_mask
+
+					# Extract valid indices
+					valid_rows = rows[valid_mask]
+					valid_cols = cols[valid_mask]
+
+					self.visited_air_map[valid_rows.astype(int), valid_cols.astype(int)] = 1
+			
+			else:
+
+				self.visited_air_map[
+					self.drones[drone_id].last_waypoints[:, 0].astype(int),
+					self.drones[drone_id].last_waypoints[:, 1].astype(int)] = 1
 		
 		self.update_idleness_map_drone()
 
@@ -1207,8 +1335,10 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 				 blur_data: bool = False,							#
 				 drone_noise: str = 'none',							#
 				 fisheye_side: float = 1,							#
-				 update_only_with_ASV: bool = False					#		allows to set wheter the global idleness forgetting factor has to be added only with ASV read or with both the ASV and drone read
-	             ):
+				 update_only_with_ASV: bool = False,				#		allows to set wheter the global idleness forgetting factor has to be added only with ASV read or with both the ASV and drone read
+	             influence_drone_visited_map: bool = False,			#		allows to set wheter the visited map of the drones has to track only the effective position of the drone or to track the entire square of real influence 
+				 influence_asv_visited_map: bool = False			#		allows to set wheter the visited map of the asvs has to track only the effective position of the asv or to track the entire influence that the asv has
+				 ):
 		
 		super().__init__(n_agents,
 				 		navigation_map,
@@ -1252,6 +1382,8 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 		self.drone_direct_idleness_influence = drone_direct_idleness_influece
 		self.reward_drone_type = reward_drone_type
 		self.update_only_with_ASV = update_only_with_ASV
+		self.influence_drone_visited_map = influence_drone_visited_map
+		self.influence_asv_visited_map = influence_asv_visited_map
 
 		""" Create the fleet """		
 		self.fleet = CoordinatedHetFleet(n_vehicles = self.n_agents,							
@@ -1270,7 +1402,9 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 										drone_idleness_influence = self.drone_idleness_influence,		
 										drone_direct_idleness_influece = self.drone_direct_idleness_influence,					
 										n_drones = self.n_drones,
-										update_only_with_ASV=self.update_only_with_ASV)		
+										update_only_with_ASV=self.update_only_with_ASV,
+										influence_drone_visited_map = influence_drone_visited_map,
+										influence_asv_visited_map = influence_asv_visited_map)		
 
 		#array of possible drone destinations
 		self.possible_positions = np.argwhere(self.navigation_map == 1)

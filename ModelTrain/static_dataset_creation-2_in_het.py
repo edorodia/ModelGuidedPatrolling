@@ -47,6 +47,8 @@ argparser.add_argument('--random', type=bool, default=False)
 argparser.add_argument('--drone_noise', type=str, default='NoNoise', choices=['FishEyeNoise', 'MeanNoise', 'NoNoise'])
 argparser.add_argument('--no_noise_side', type = int, default=None)
 argparser.add_argument('--speed_ratio', type=float, default=11.67)
+argparser.add_argument('--influence_drone_visited_map', action='store_true')
+argparser.add_argument('--influence_asv_visited_map', action='store_true')
 
 args = argparser.parse_args()
 
@@ -67,6 +69,9 @@ dataset = args.set
 drone_noise = args.drone_noise
 no_noise_side = args.no_noise_side
 speed_ratio = args.speed_ratio
+influence_drone_visited_map = args.influence_drone_visited_map
+influence_asv_visited_map = args.influence_asv_visited_map
+
 initial_ASV_positions = np.array([[42, 32],
 									  [50, 40],
 									  [43, 44],
@@ -112,7 +117,9 @@ def generate_trajectory(seed):
 					blur_data = False,
 					drone_noise = drone_noise,
 					fisheye_side = no_noise_side,
-					update_only_with_ASV=False
+					update_only_with_ASV = False,
+					influence_drone_visited_map = influence_drone_visited_map,
+					influence_asv_visited_map = influence_asv_visited_map
 					)
 	
 	timedEnv = TimedDiscreteModelBasedHetPatrolling(	env = patrollingModel,

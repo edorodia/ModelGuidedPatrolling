@@ -11,9 +11,9 @@ import cmasher as cmr
 
 # Load the dataset
 
-trajectories = np.load(r'ModelTrain\Data\trajectories_shekel_train.npy', mmap_mode="r")
-gts = np.load(r'ModelTrain/Data/gts_shekel_train.npy', mmap_mode="r")
-background = np.genfromtxt(r'Environment\Maps\map.txt')
+trajectories = np.load('ModelTrain/Data/trajectories_shekel_train.npy', mmap_mode="r")
+gts = np.load('ModelTrain/Data/gts_shekel_train.npy', mmap_mode="r")
+background = np.genfromtxt('Environment/Maps/map.txt')
 
 plt.ion()
 

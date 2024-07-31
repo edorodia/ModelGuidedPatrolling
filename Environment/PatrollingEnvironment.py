@@ -84,7 +84,11 @@ class Drone:
 		offset = self.influence_side/2
 
 		x_start 	= int(np.ceil(self.position[1] - offset))
+		if x_start <= 0:
+			x_start = 0
 		y_start 	= int(np.ceil(self.position[0] - offset))
+		if y_start <= 0:
+			y_start = 0
 
 		x_end 		= int(np.floor(self.position[1] + offset))
 		y_end 		= int(np.floor(self.position[0] + offset))

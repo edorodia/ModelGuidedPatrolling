@@ -291,7 +291,8 @@ class CoordinatedFleet:
 	             total_max_distance: float,
 	             influence_radius: float,
 	             forgetting_factor: float,
-				 influence_asv_visited_map: bool = False
+				 influence_asv_visited_map: bool = False,
+				 check_max_distances: bool = True
 	             ):
 		
 		self.navigation_map = navigation_map
@@ -299,6 +300,8 @@ class CoordinatedFleet:
 		self.total_max_distance = total_max_distance
 		self.n_vehicles = n_vehicles
 		self.forgetting_factor = forgetting_factor
+
+		self.check_max_distances = check_max_distances
 
 		self.influence_radius = influence_radius
 		
@@ -340,8 +343,9 @@ class CoordinatedFleet:
 		# Set the flags for inactive agents #
 		remove_ids = []
 		for vehicle_id in self.vehicles_ids:
-			if self.vehicles[vehicle_id].distance > self.total_max_distance:
-				remove_ids.append(vehicle_id)
+			if self.check_max_distances:
+				if self.vehicles[vehicle_id].distance > self.total_max_distance:
+					remove_ids.append(vehicle_id)
 		
 		# Remove the inactive agents #
 		for vehicle_id in remove_ids:
@@ -521,7 +525,8 @@ class CoordinatedHetFleet(CoordinatedFleet):
 				 n_drones: int,
 				 update_only_with_ASV: bool,
 				 influence_drone_visited_map: bool,
-				 influence_asv_visited_map: bool):						
+				 influence_asv_visited_map: bool,
+				 check_max_distances: bool = True):						
 
 		super().__init__(n_vehicles, 
 				       initial_surface_positions,
@@ -529,7 +534,8 @@ class CoordinatedHetFleet(CoordinatedFleet):
 					   total_max_surface_distance,
 					   influence_radius,
 					   forgetting_factor,
-					   influence_asv_visited_map = influence_asv_visited_map)
+					   influence_asv_visited_map = influence_asv_visited_map,
+					   check_max_distances = check_max_distances)
 
 		self.total_max_air_distance = total_max_air_distance
 		self.initial_air_positions = initial_air_positions
@@ -538,6 +544,8 @@ class CoordinatedHetFleet(CoordinatedFleet):
 		self.drone_idleness_influence = drone_idleness_influence
 		self.influence_side = influence_side
 		self.n_drones = n_drones
+
+		self.check_max_distances = check_max_distances
 
 		self.update_only_with_ASV = update_only_with_ASV
 		self.influence_drone_visited_map = influence_drone_visited_map
@@ -620,8 +628,9 @@ class CoordinatedHetFleet(CoordinatedFleet):
 		# Set the flags for inactive drones that have to move #
 		remove_ids = []
 		for drone_id in to_positions.keys():
-			if self.drones[drone_id].distance > self.total_max_air_distance:
-				remove_ids.append(drone_id)
+			if self.check_max_distances:
+				if self.drones[drone_id].distance > self.total_max_air_distance:
+					remove_ids.append(drone_id)
 		
 		# Remove the inactive drones from the drones_ids list #
 		for drone_id in remove_ids:
@@ -913,6 +922,7 @@ class DiscreteModelBasedPatrolling:
 	             previous_exploration=False,
 	             pre_exploration_policy=None,
 	             pre_exploration_steps=0,
+				 check_max_distances: bool = True
 	             ):
 		
 		""" Copy attributes """
@@ -935,6 +945,7 @@ class DiscreteModelBasedPatrolling:
 		self.seed = seed
 		self.dynamic = dynamic
 		self.random_gt = random_gt
+		self.check_max_distances = check_max_distances
 		
 		self.true_reward = {}
 		
@@ -965,7 +976,8 @@ class DiscreteModelBasedPatrolling:
 		                              navigation_map=self.navigation_map,
 		                              total_max_distance=self.max_distance,
 		                              influence_radius=self.influence_radius,
-		                              forgetting_factor=self.forgetting_factor, )
+		                              forgetting_factor=self.forgetting_factor,
+									  check_max_distances = self.check_max_distances)
 		
 		""" Create the observation space """
 		
@@ -1223,9 +1235,9 @@ class DiscreteModelBasedPatrolling:
 	
 	def get_done(self):
 		""" End the episode when the distance is greater than the max distance """
-		
-		done = {agent_id: self.fleet.vehicles[agent_id].distance > self.max_distance or self.fleet.vehicles[agent_id].steps > self.max_agent_steps for agent_id in
-		        self.fleet.vehicles_ids}
+		if self.check_max_distances:
+			done = {agent_id: self.fleet.vehicles[agent_id].distance > self.max_distance or self.fleet.vehicles[agent_id].steps > self.max_agent_steps for agent_id in
+		        	self.fleet.vehicles_ids}
 		
 		return done
 	
@@ -1341,7 +1353,8 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 				 fisheye_side: float = 1,							#
 				 update_only_with_ASV: bool = False,				#		allows to set wheter the global idleness forgetting factor has to be added only with ASV read or with both the ASV and drone read
 	             influence_drone_visited_map: bool = False,			#		allows to set wheter the visited map of the drones has to track only the effective position of the drone or to track the entire square of real influence 
-				 influence_asv_visited_map: bool = False			#		allows to set wheter the visited map of the asvs has to track only the effective position of the asv or to track the entire influence that the asv has
+				 influence_asv_visited_map: bool = False,			#		allows to set wheter the visited map of the asvs has to track only the effective position of the asv or to track the entire influence that the asv has
+				 check_max_distances: bool = True					#		sets if the environment has to check and exclude the agents after they reach the max distance allowed
 				 ):
 		
 		super().__init__(n_agents,
@@ -1364,13 +1377,14 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 						min_information_importance,
 						previous_exploration,
 						pre_exploration_policy,
-						pre_exploration_steps)
+						pre_exploration_steps,
+						check_max_distances)
 		
 		""" Copy attributes """
 		self.n_drones = n_drones
 		self.initial_air_positions = initial_air_positions
 		self.max_air_distance = max_air_distance
-
+		self.check_max_distances = check_max_distances
 		#the influence_side has to be odd in order to have the drone always centered in a cell, the even values will be increased by 1
 		influence_side = np.floor(influence_side)
 		if influence_side % 2 == 0 :
@@ -1408,7 +1422,8 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 										n_drones = self.n_drones,
 										update_only_with_ASV=self.update_only_with_ASV,
 										influence_drone_visited_map = influence_drone_visited_map,
-										influence_asv_visited_map = influence_asv_visited_map)		
+										influence_asv_visited_map = influence_asv_visited_map,
+										check_max_distances = self.check_max_distances)		
 
 		#array of possible drone destinations
 		self.possible_positions = np.argwhere(self.navigation_map == 1)
@@ -1740,7 +1755,8 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 			
 		done_ASVs = super().get_done()
 
-		done_Drones = { drone_id: self.fleet.drones[drone_id].distance > self.max_air_distance for drone_id in self.fleet.drones_ids }
+		if self.check_max_distances:
+			done_Drones = { drone_id: self.fleet.drones[drone_id].distance > self.max_air_distance for drone_id in self.fleet.drones_ids }
 
 		return done_ASVs, done_Drones
 

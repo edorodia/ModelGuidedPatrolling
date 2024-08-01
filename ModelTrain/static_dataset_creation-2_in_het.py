@@ -30,8 +30,8 @@ argparser = argparse.ArgumentParser()
 argparser.add_argument('--n_agents', type=int, default=4)
 argparser.add_argument('--n_drones', type=int, default=1)
 argparser.add_argument('--frameskip', type=int, default=1)
-argparser.add_argument('--max_frames', type=int, default=100)
-argparser.add_argument('--N_episodes', type=int, default=3)
+argparser.add_argument('--max_frames', type=int, default=319)
+argparser.add_argument('--N_episodes', type=int, default=3000)
 #if the argument is a string, even "false" then bool('False') returns True giving parallel a True value
 argparser.add_argument('--parallel', action='store_true')
 argparser.add_argument('--benchmark', type=str, default='shekel', choices=['algae_bloom', 'shekel'])
@@ -121,7 +121,8 @@ def generate_trajectory(seed):
 					fisheye_side = no_noise_side,
 					update_only_with_ASV = False,
 					influence_drone_visited_map = influence_drone_visited_map,
-					influence_asv_visited_map = influence_asv_visited_map
+					influence_asv_visited_map = influence_asv_visited_map,
+					check_max_distances = False
 					)
 	
 	timedEnv = TimedDiscreteModelBasedHetPatrolling(	env = patrollingModel,

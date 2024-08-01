@@ -34,7 +34,7 @@ argparser.add_argument('--n_agents', type=int, default=4)
 argparser.add_argument('--n_drones', type=int, default=1)
 argparser.add_argument('--frameskip', type=int, default=1)
 argparser.add_argument('--max_frames', type=int, default=100)
-argparser.add_argument('--N_episodes', type=int, default=3000)
+argparser.add_argument('--N_episodes', type=int, default=3)
 #if the argument is a string, even "false" then bool('False') returns True giving parallel a True value
 argparser.add_argument('--parallel', action='store_true')
 argparser.add_argument('--benchmark', type=str, default='shekel', choices=['algae_bloom', 'shekel'])
@@ -53,6 +53,7 @@ argparser.add_argument('--speed_ratio', type=float, default=11.67)
 argparser.add_argument('--influence_drone_visited_map', action='store_true')
 argparser.add_argument('--influence_asv_visited_map', action='store_true')
 argparser.add_argument('--importance_asv_read', type=str, default='miopic', choices=['miopic', 'none'])
+argparser.add_argument('--name_file', type=str)
 
 args = argparser.parse_args()
 
@@ -76,6 +77,7 @@ speed_ratio = args.speed_ratio
 influence_drone_visited_map = args.influence_drone_visited_map
 influence_asv_visited_map = args.influence_asv_visited_map
 importance_asv_read = args.importance_asv_read
+name_file = args.name_file
 
 initial_ASV_positions = np.array([[42, 32],
 									  [50, 40],
@@ -187,18 +189,6 @@ def generate_trajectory(seed):
 	return observation_trajectory, ground_truth
 
 
-class worker:
-	def __init__(self, fnGTS,fnTRAJ):
-		self.fnGTS = fnGTS
-		self.fnTRAJ = fnTRAJ
-	
-	def parallel_worker(self, seed):
-		trajectorie = generate_trajectory(seed)
-		gts = np.asarray([trajectorie[1]])
-		observations = np.asarray([trajectorie[0]])
-		self.fnGTS.append((gts* 255.0).astype(np.uint8))
-		self.fnTRAJ.append((observations * 255.0).astype(np.uint8))
-
 if __name__ == "__main__":
 
 	# Create a Pool of sub-processes
@@ -215,37 +205,33 @@ if __name__ == "__main__":
 		file_name_traj = 'ModelTrain/Data/trajectories_' + benchmark + '_' + dataset + '.npy'
 		file_name_gts = 'ModelTrain/Data/gts_' + benchmark + '_' + dataset + '.npy'
 
-		
-
 		#with NpyAppendArray(file_name_gts, delete_if_exists=True) as fnGTS, NpyAppendArray(file_name_traj, delete_if_exists=True) as fnTRAJ:
 		fnGTS = NpyAppendArray(file_name_gts, delete_if_exists=True)
 		fnTRAJ = NpyAppendArray(file_name_traj, delete_if_exists=True)
 
-		elaborator = worker(fnGTS, fnTRAJ)
-
-		"""
 		# Create a Pool of sub-processes
 		pool = mp.Pool(4)
 		# Generate the trajectories in parallel imap returns an iterator
-		#Careful imap should return an iterable that you need to elaborate to extract useful information about trajectories
-		results = list(tqdm(pool.imap(elaborator.parallel_worker, range(seed_start, seed_end)), total=seed_end-seed_start))
+		# trajectories = list(pool.imap(generate_trajectory, range(seed_start, seed_end)))
+
+		trajectories = list(pool.imap(generate_trajectory, range(seed_start, seed_end)))
+
+		for trajectorie in trajectories:
+			gts = np.asarray([trajectorie[1]])
+			observations = np.asarray([trajectorie[0]])
+			fnGTS.append((gts* 255.0).astype(np.uint8))
+			fnTRAJ.append((observations * 255.0).astype(np.uint8))
+
 		# Close the pool
 		pool.close()
-		"""
-		processes = []
-		num_threads = seed_end - seed_start
-
-		with ThreadPoolExecutor(max_workers=10) as executor:
-			with tqdm(total=seed_end - seed_start, desc="Processing", unit="thread") as pbar:
-				futures = {executor.submit(elaborator.parallel_worker, seed): seed for seed in range(seed_start, seed_end)}
-				for future in futures:
-					future.result()  # Wait for the thread to complete
-					pbar.update(1)  # Update progress bar
 	
 	else:
-
-		file_name_traj = 'ModelTrain/Data/trajectories_' + benchmark + '_' + dataset + '.npy'
-		file_name_gts = 'ModelTrain/Data/gts_' + benchmark + '_' + dataset + '.npy'
+		if name_file == "":
+			file_name_traj = 'ModelTrain/Data/trajectories_' + benchmark + '_' + dataset + '.npy'
+			file_name_gts = 'ModelTrain/Data/gts_' + benchmark + '_' + dataset + '.npy'
+		else:
+			file_name_traj = 'ModelTrain/Data/trajectories_' + benchmark + '_' + dataset + '_' + name_file + '.npy'
+			file_name_gts = 'ModelTrain/Data/gts_' + benchmark + '_' + dataset + '_' + name_file + '.npy'
 		
 		with NpyAppendArray(file_name_gts, delete_if_exists=True) as fnGTS, NpyAppendArray(file_name_traj, delete_if_exists=True) as fnTRAJ:
 			for i in tqdm(range(seed_start, seed_end)):

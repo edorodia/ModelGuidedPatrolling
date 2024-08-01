@@ -1235,6 +1235,8 @@ class DiscreteModelBasedPatrolling:
 	
 	def get_done(self):
 		""" End the episode when the distance is greater than the max distance """
+		done = {agent_id: False for agent_id in self.fleet.vehicles_ids}
+
 		if self.check_max_distances:
 			done = {agent_id: self.fleet.vehicles[agent_id].distance > self.max_distance or self.fleet.vehicles[agent_id].steps > self.max_agent_steps for agent_id in
 		        	self.fleet.vehicles_ids}
@@ -1754,6 +1756,8 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 		""" End the episode when the distance is greater than the max distance both for the drones and the ASVs """
 			
 		done_ASVs = super().get_done()
+
+		done_Drones = { drone_id: False for drone_id in self.fleet.drones_ids }
 
 		if self.check_max_distances:
 			done_Drones = { drone_id: self.fleet.drones[drone_id].distance > self.max_air_distance for drone_id in self.fleet.drones_ids }

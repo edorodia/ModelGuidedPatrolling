@@ -49,6 +49,7 @@ argparser.add_argument('--no_noise_side', type = int, default=None)
 argparser.add_argument('--speed_ratio', type=float, default=11.67)
 argparser.add_argument('--influence_drone_visited_map', action='store_true')
 argparser.add_argument('--influence_asv_visited_map', action='store_true')
+argparser.add_argument('--importance_asv_read', type=str, default='miopic', choices=['miopic', 'none'])
 
 args = argparser.parse_args()
 
@@ -71,6 +72,7 @@ no_noise_side = args.no_noise_side
 speed_ratio = args.speed_ratio
 influence_drone_visited_map = args.influence_drone_visited_map
 influence_asv_visited_map = args.influence_asv_visited_map
+importance_asv_read = args.importance_asv_read
 
 initial_ASV_positions = np.array([[42, 32],
 									  [50, 40],
@@ -103,7 +105,7 @@ def generate_trajectory(seed):
 					reward_type='weighted_idleness',
 					reward_weights=[10, 10],
 					benchmark = args.benchmark,
-					model = 'miopic',
+					model = importance_asv_read,	#set the model from parameter in order to have radius importance read activated or not
 					dynamic = False,
 					seed = seed,
 					int_observation = True,

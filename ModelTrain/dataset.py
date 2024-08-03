@@ -1,6 +1,7 @@
 from torch.utils.data import Dataset
 import torch as th
 import numpy as np
+import cmasher as cmr
 
 class StaticDataset(Dataset):
 
@@ -43,33 +44,46 @@ class StaticDataset(Dataset):
 
 if __name__ == '__main__':
 
-    # Load the dataset and plot it #
+	# Load the dataset and plot it #
 
-    import matplotlib.pyplot as plt
+	import matplotlib.pyplot as plt
 
-    dataset = StaticDataset(path_trajectories = 'ModelTrain/Data/trajectories_static.npy',
-                            path_gts = 'ModelTrain/Data/gts_static.npy',
+	dataset = StaticDataset(path_trajectories = 'ModelTrain/Data/trajectories_shekel_train_1.npy',
+							path_gts = 'ModelTrain/Data/gts_shekel_train_1.npy',
 
-                            transform=None)
+							transform=None)
 
-    mask = np.genfromtxt('Environment/Maps/map.txt', delimiter=' ')
+	mask = np.genfromtxt('Environment/Maps/map.txt', delimiter=' ')
 
-    print("Shape of the dataset: ", dataset.trajectories.shape)
+	print("Shape of the dataset: ", dataset.trajectories.shape)
 
-    # Show some samples in a 3x3 grid
+	# Show some samples in a 3x3 grid
 
-    fig, axs = plt.subplots(3, 3, figsize = (10, 10))
+	fig, axs = plt.subplots(3, 3, figsize = (10, 10))
 
-    for i in range(3):
+	for i in range(3):
 
-            j = np.random.randint(0, 1000)
-            h = np.random.randint(0, 10)
+			j = np.random.randint(0, 1000)
+			h = np.random.randint(0, 10)
 
-            axs[i, 0].imshow(dataset[j*h][0][0,:,:], vmin=0, vmax=1)
-            axs[i, 1].imshow(dataset[j*h][0][1,:,:], vmin=0, vmax=1)
-            axs[i, 2].imshow(dataset[j*h][1], vmin=0, vmax=1)
-            axs[i, 0].set_title(f'Time traj {j} step {h}')
-            axs[i, 1].set_title(f'Model traj {j} step {h}')
-            axs[i, 2].set_title(f'GT traj {j} step {h}')
+			#axs[i, 0].imshow(dataset[j*h][0][0,:,:], vmin=0, vmax=1)
+			axs[i, 0].imshow(mask, vmin=0, vmax=1, cmap = 'copper_r', alpha = 1 - mask, zorder=10)
+			d0 = axs[i, 0].imshow(dataset[j*h][0][0,:,:], vmin=0, vmax=1, cmap = 'gray')
 
-    plt.show()
+			#axs[i, 1].imshow(dataset[j*h][0][1,:,:], vmin=0, vmax=1)
+			axs[i, 1].imshow(mask, vmin=0, vmax=1, cmap = 'copper_r', alpha = 1 - mask, zorder=10)
+			d1 = axs[i, 1].imshow(dataset[j*h][0][1,:,:], vmin=0, vmax=1, cmap = cmr.get_sub_cmap('cmr.toxic', 0.30, 0.99))
+
+			#axs[i, 2].imshow(dataset[j*h][1], vmin=0, vmax=1)
+			axs[i, 2].imshow(mask, vmin=0, vmax=1, cmap = 'copper_r', alpha = 1 - mask, zorder=10)
+			d2 = axs[i,2].imshow(dataset[j*h][1], vmin=0, vmax=1,  cmap = cmr.get_sub_cmap('cmr.toxic', 0.30, 0.99))
+
+			d0.set_data(dataset[j*h][0][0,:,:]/255)
+			d1.set_data(dataset[j*h][0][1,:,:]/255)
+			d2.set_data(dataset[j*h][1]/255)
+
+			axs[i, 0].set_title(f'Time traj {j} step {h}')
+			axs[i, 1].set_title(f'Model traj {j} step {h}')
+			axs[i, 2].set_title(f'GT traj {j} step {h}')
+
+	plt.show()

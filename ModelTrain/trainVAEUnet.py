@@ -28,8 +28,11 @@ argparser.add_argument('--scale', type=int, default=2)
 args = argparser.parse_args()
 
 benchmark = args.benchmark
-train_traj_file_name = 'ModelTrain/Data/trajectories_' + benchmark + '_train.npy'
-train_gt_file_name = 'ModelTrain/Data/gts_' + benchmark + '_train.npy'
+
+dataset_folder = "NoNoise_Shekel_Datasets/NoNoise_-_False_False_miopic"
+
+train_traj_file_name = 'ModelTrain/' + dataset_folder + '/trajectories_' + benchmark + '_train.npy'
+train_gt_file_name = 'ModelTrain/' + dataset_folder + '/gts_' + benchmark + '_train.npy'
 test_traj_file_name = 'ModelTrain/Data/trajectories_' + benchmark + '_train.npy'
 test_gt_file_name = 'ModelTrain/Data/gts_' + benchmark + '_train.npy'
 

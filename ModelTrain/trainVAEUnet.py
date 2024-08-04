@@ -33,8 +33,8 @@ dataset_folder = "NoNoise_Shekel_Datasets/NoNoise_-_False_False_miopic"
 
 train_traj_file_name = 'ModelTrain/' + dataset_folder + '/trajectories_' + benchmark + '_train.npy'
 train_gt_file_name = 'ModelTrain/' + dataset_folder + '/gts_' + benchmark + '_train.npy'
-test_traj_file_name = 'ModelTrain/Data/trajectories_' + benchmark + '_train.npy'
-test_gt_file_name = 'ModelTrain/Data/gts_' + benchmark + '_train.npy'
+test_traj_file_name = 'ModelTrain/' + dataset_folder + '/trajectories_' + benchmark + '_train.npy'
+test_gt_file_name = 'ModelTrain/' + dataset_folder + '/gts_' + benchmark + '_train.npy'
 
 # Create the dataset
 dataset = StaticDataset(path_trajectories = train_traj_file_name, 
@@ -66,6 +66,7 @@ input_shape = dataset.trajectories.shape[2:]
 model = VAEUnet(input_shape=input_shape, n_channels_in=2, n_channels_out=1, bilinear=False, scale=args.scale).to(device)
 
 # Define the optimizer
+# We give to the optimizer the learning rate to use and the parameters to optimize
 optimizer = th.optim.Adam(model.parameters(), lr = args.lr)
 #NOTE: The loss function is defined in the model
 
@@ -133,6 +134,7 @@ for epoch in tqdm(range(N_epochs), desc="Epochs: "):
 		running_loss_perceptual.append(perceptual_loss.item())
 		
 		# Reset the gradients
+		# otherwise it would add the gradients from the older batches, resulting in wrong updates
 		optimizer.zero_grad()
 		# Backward pass
 		loss.backward()

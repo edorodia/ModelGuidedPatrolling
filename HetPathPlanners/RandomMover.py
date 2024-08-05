@@ -84,14 +84,20 @@ class RandomVehicleMover:
 	"""
 	def check_collision(self, action, actual_position):
 		""" Check if the agent collides with an obstacle """
-		new_position = actual_position + self.action_to_vector(action) * self.move_length
-		new_position = np.ceil(new_position).astype(int)
-		
-		OBS = (new_position[0] < 0) or (new_position[0] >= self.world.shape[0]) or (new_position[1] < 0) or (new_position[1] >= self.world.shape[1])
-		if not OBS:
-			OBS = self.world[new_position[0], new_position[1]] == 0
+		""" Check also in the intermediate positions """
+		for minimove in range(1,self.move_length + 1):
+			new_position = actual_position + self.action_to_vector(action) * minimove
+			new_position = np.ceil(new_position).astype(int)
+			
+			OBS = (new_position[0] < 0) or (new_position[0] >= self.world.shape[0]) or (new_position[1] < 0) or (new_position[1] >= self.world.shape[1])
+			
+			if not OBS:
+				OBS = self.world[new_position[0], new_position[1]] == 0
 
-		return OBS
+			if OBS:
+				return OBS
+
+		return False
 
 	"""
 	selects a random action that has no collision and isn't the opposite one

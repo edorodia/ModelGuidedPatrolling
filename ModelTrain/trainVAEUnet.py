@@ -90,7 +90,7 @@ def beta_scheduler(t, beta_min = 0.001, beta_max=1.0, t_beta_min=0.0, t_beta_max
 	else:
 		return beta_max
 
-error_mask = np.genfromtxt('Environment\Maps\map.txt', delimiter=' ')
+error_mask = np.genfromtxt('Environment/Maps/map.txt', delimiter=' ')
 error_mask = th.Tensor(error_mask).to(device)
 
 

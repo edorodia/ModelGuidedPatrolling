@@ -33,12 +33,12 @@ argparser = argparse.ArgumentParser()
 argparser.add_argument('--n_agents', type=int, default=4)
 argparser.add_argument('--n_drones', type=int, default=1)
 argparser.add_argument('--frameskip', type=int, default=1)
-argparser.add_argument('--max_frames', type=int, default=100)
-argparser.add_argument('--N_episodes', type=int, default=3)
+argparser.add_argument('--max_frames', type=int, default=320)
+argparser.add_argument('--N_episodes', type=int, default=3000)
 #if the argument is a string, even "false" then bool('False') returns True giving parallel a True value
 argparser.add_argument('--parallel', action='store_true')
 argparser.add_argument('--benchmark', type=str, default='shekel', choices=['algae_bloom', 'shekel'])
-argparser.add_argument('--set', type=str, default='train', choices=['train', 'test'])
+argparser.add_argument('--set', type=str, default='train', choices=['train', 'test', 'validation'])
 argparser.add_argument('--random', type=bool, default=False)
 
 ###
@@ -199,6 +199,9 @@ if __name__ == "__main__":
 	elif dataset == 'test':
 		seed_start = 10000
 		seed_end = 10000 + N_episodes
+	elif dataset == 'validation':
+		seed_start = 20000
+		seed_end = 20000 + N_episodes
 
 
 	if parallel:

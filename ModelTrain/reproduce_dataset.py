@@ -10,10 +10,15 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 import cmasher as cmr
 
 # Load the dataset
-foldername = "ModelTrain/NoNoise_Shekel_Datasets/NoNoise_-_False_True_none"
+benchmark = "validation"
+
+comb_type = "NoNoise_-_True_False_none"
+
+
+foldername = "ModelTrain/"+ benchmark +"_NoNoise_Shekel_Datasets/" + comb_type
 #foldername = "ModelTrain/Data"
-trajectories = np.load(foldername + '/trajectories_shekel_train.npy', mmap_mode="r")
-gts = np.load(foldername + '/gts_shekel_train.npy', mmap_mode="r")
+trajectories = np.load(foldername + '/trajectories_shekel_'+ benchmark +'.npy', mmap_mode="r")
+gts = np.load(foldername + '/gts_shekel_'+ benchmark +'.npy', mmap_mode="r")
 background = np.genfromtxt('Environment/Maps/map.txt')
 
 plt.ion()

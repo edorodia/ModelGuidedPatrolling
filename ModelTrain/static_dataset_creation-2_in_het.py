@@ -48,12 +48,12 @@ argparser.add_argument('--random', type=bool, default=False)
 	this can be parametrized"""
 ###
 argparser.add_argument('--drone_noise', type=str, default='NoNoise', choices=['FishEyeNoise', 'MeanNoise', 'NoNoise'])
-argparser.add_argument('--no_noise_side', type = int, default=None)
+argparser.add_argument('--no_noise_side', type = int, default=5)
 argparser.add_argument('--speed_ratio', type=float, default=11.67)
 argparser.add_argument('--influence_drone_visited_map', action='store_true')
 argparser.add_argument('--influence_asv_visited_map', action='store_true')
 argparser.add_argument('--importance_asv_read', type=str, default='miopic', choices=['miopic', 'none'])
-argparser.add_argument('--name_file', type=str)
+argparser.add_argument('--name_file', type=str, default="")
 
 args = argparser.parse_args()
 

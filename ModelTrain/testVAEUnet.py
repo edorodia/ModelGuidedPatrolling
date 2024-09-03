@@ -28,13 +28,13 @@ device = th.device('cuda' if th.cuda.is_available() else 'cpu')
 
 #################### Folders and Parameters setting ####################
 
-folder = args.test_type + "_NoNoise_" + args.benchmark + "_Datasets"			#folder where the dataset is
+folder = args.test_type + "_NoDrone_" + args.benchmark + "_Datasets"			#folder where the dataset is
 
-comb_type = "NoNoise_-_True_False_none"										#combination type of the model trained
+comb_type = "NoDrone_-_False_none"										#combination type of the model trained
 
-trained_model_folder = "runs-3_Completed_epoch_50_" + comb_type		#name of the folder runs if edited
+trained_model_folder = "runs-8_Completed_epoch_50_" + comb_type		#name of the folder runs if edited
 
-VAEUnet_folder = "VAEUnet_shekel_20240807-192042"								#internal name of variable name folder
+VAEUnet_folder = "VAEUnet_shekel_20240829-144816"								#internal name of variable name folder
 
 #######################################################################
 

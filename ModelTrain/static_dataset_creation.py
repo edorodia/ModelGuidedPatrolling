@@ -10,6 +10,7 @@ from tqdm import tqdm
 from torch.utils.data import Dataset, DataLoader
 import torch as th
 import argparse
+from npy_append_array import NpyAppendArray
 
 # Define the parameters of the environment
 
@@ -26,13 +27,14 @@ argparser = argparse.ArgumentParser()
 
 argparser.add_argument('--n_agents', type=int, default=4)
 argparser.add_argument('--frameskip', type=int, default=1)
-argparser.add_argument('--max_frames', type=int, default=100)
-argparser.add_argument('--N_episodes', type=int, default=3)
+argparser.add_argument('--max_frames', type=int, default=320)
+argparser.add_argument('--N_episodes', type=int, default=50)
 #if the argument is a string, even "false" then bool('False') returns True giving parallel a True value
 argparser.add_argument('--parallel', action='store_true')
 argparser.add_argument('--benchmark', type=str, default='shekel', choices=['algae_bloom', 'shekel'])
-argparser.add_argument('--set', type=str, default='train', choices=['train', 'test'])
+argparser.add_argument('--set', type=str, default='train', choices=['train', 'validation', 'test'])
 argparser.add_argument('--random', type=bool, default=False)
+
 
 args = argparser.parse_args()
 
@@ -68,10 +70,11 @@ def generate_trajectory(seed):
 								max_distance=400,
 								benchmark=args.benchmark,
 								dynamic=False,
-								reward_weights=[10.0, 100.0],
+								reward_weights=[10.0, 10.0],
 								reward_type='weighted_idleness',
-								model='miopic',
-								seed=seed,)
+								model='none',
+								seed=seed,
+								check_max_distances=False)
 
 
 	env.reset()
@@ -131,8 +134,11 @@ if __name__ == "__main__":
 	elif dataset == 'test':
 		seed_start = 10000
 		seed_end = 10000 + N_episodes
+	elif dataset == 'validation':
+		seed_start = 20000
+		seed_end = 20000 + N_episodes
 
-
+	"""
 	if parallel:
 		
 		# Create a Pool of sub-processes
@@ -156,6 +162,62 @@ if __name__ == "__main__":
 	np.save(file_name, (observations * 255.0).astype(np.uint8))
 	file_name = 'ModelTrain/Data/gts_' + benchmark + '_' + dataset + '.npy'
 	np.save(file_name, (gts* 255.0).astype(np.uint8))
+	"""
+
+	if parallel:
+			file_name_traj = 'ModelTrain/Data/trajectories_' + benchmark + '_' + dataset + '.npy'
+			file_name_gts = 'ModelTrain/Data/gts_' + benchmark + '_' + dataset + '.npy'
+
+			#with NpyAppendArray(file_name_gts, delete_if_exists=True) as fnGTS, NpyAppendArray(file_name_traj, delete_if_exists=True) as fnTRAJ:
+			fnGTS = NpyAppendArray(file_name_gts, delete_if_exists=True)
+			fnTRAJ = NpyAppendArray(file_name_traj, delete_if_exists=True)
+
+			# Create a Pool of sub-processes
+			pool = mp.Pool(4)
+			# Generate the trajectories in parallel imap returns an iterator
+			# trajectories = list(pool.imap(generate_trajectory, range(seed_start, seed_end)))
+
+			trajectories = list(pool.imap(generate_trajectory, range(seed_start, seed_end)))
+
+			for trajectorie in trajectories:
+				gts = np.asarray([trajectorie[1]])
+				observations = np.asarray([trajectorie[0]])
+				fnGTS.append((gts* 255.0).astype(np.uint8))
+				fnTRAJ.append((observations * 255.0).astype(np.uint8))
+
+			# Close the pool
+			pool.close()
+		
+	else:
+		
+		file_name_traj = 'ModelTrain/Data/trajectories_' + benchmark + '_' + dataset + '.npy'
+		file_name_gts = 'ModelTrain/Data/gts_' + benchmark + '_' + dataset + '.npy'
+		
+		with NpyAppendArray(file_name_gts, delete_if_exists=True) as fnGTS, NpyAppendArray(file_name_traj, delete_if_exists=True) as fnTRAJ:
+			for i in tqdm(range(seed_start, seed_end)):
+				trajectorie = generate_trajectory(i)
+				gts = np.asarray([trajectorie[1]])
+				observations = np.asarray([trajectorie[0]])
+				fnGTS.append((gts* 255.0).astype(np.uint8))
+				fnTRAJ.append((observations * 255.0).astype(np.uint8))
+		
+
+		#trajectories = [generate_trajectory(i) for i in tqdm(range(seed_start, seed_end))]
+
+	"""for obs, gt in trajectories:
+		gts = np.asarray(gt)
+		observations = np.asarray(obs)"""
+
+	#gts = np.asarray([traj[1] for traj in trajectories])
+	#observations = np.asarray([traj[0] for traj in trajectories])
+
+	# Save the trajectories 
+	"""
+	file_name = 'ModelTrain/Data/trajectories_' + benchmark + '_' + dataset + '.npy'
+	np.save(file_name, (observations * 255.0).astype(np.uint8))
+	file_name = 'ModelTrain/Data/gts_' + benchmark + '_' + dataset + '.npy'
+	np.save(file_name, (gts* 255.0).astype(np.uint8))
+		"""
 
 
 

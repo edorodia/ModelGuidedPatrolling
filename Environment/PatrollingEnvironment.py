@@ -1121,12 +1121,12 @@ class DiscreteModelBasedPatrolling:
 		# Get the done flag #
 		done = self.get_done()
 		
+		if self.eval:
+			self.info = self.get_info()
+
 		#if the dynamic flag is set calls for a step in the ground truth
 		if self.dynamic:
 			self.ground_truth.step()
-		
-		if self.eval:
-			self.info = self.get_info()
 		
 		return observations, rewards, done, self.info
 	
@@ -1338,7 +1338,7 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 	             reward_weights=(1, 1),
 	             benchmark: str = 'algae_bloom',
 	             model: str = 'miopic',
-	             dynamic: bool = True,
+	             dynamic: bool = False,
 	             seed: int = 0,
 	             random_gt: bool = True,
 	             int_observation: bool = False,
@@ -1600,12 +1600,6 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 		"""
 		done_ASV, done_Drone = self.get_done()
 		
-
-		#if the dynamic flag is set calls for a step in the ground truth
-		if self.dynamic:
-			self.ground_truth.step()
-		
-
 		# Get the information data #
 		"""
 		drone data has to be added into this method
@@ -1613,6 +1607,10 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 		if self.eval:
 			self.info = self.get_info()
 		
+		#if the dynamic flag is set calls for a step in the ground truth
+		if self.dynamic:
+			self.ground_truth.step()
+
 		return observations, ASV_rewards, drone_rewards, done_ASV, done_Drone, self.info
 
 	"""

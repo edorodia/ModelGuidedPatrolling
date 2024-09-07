@@ -1,8 +1,10 @@
 
 import numpy as np
 from deap import benchmarks
+import time
 
 import sys
+import random
 
 sys.path.append('.')
 
@@ -30,11 +32,12 @@ class shekel(object):
         self.dt = dt
 
         #This section of code generates positions of the peaks, and their height
-        # Peaks positions bounded from 1 to 9 in every axis
+        # Peaks number of peaks in the benchmark
         self.number_of_peaks = np.random.randint(1, self.max_number_of_peaks+1)
-        #Generates a set of number_of_peaks couples of values all in the [0,1)
+        # Generates a set of number_of_peaks couples of values all in the [0,1)
+        # Generates the positions where to put the peaks
         self.A = np.random.rand(self.number_of_peaks, 2) * self.xy_size # * 0.8 + self.xy_size*0.2
-        # Peaks size bounded from a minimum 2.5 to 5
+        # Peaks size bounded from a minimum 2.5 to 5 (0.5 to 2.5?)
         self.C = 2*np.random.rand(self.number_of_peaks, 1) + 0.5
 
         """
@@ -83,6 +86,8 @@ class shekel(object):
 
         if self.is_bounded:
             self.normalized_z = np.nan_to_num(self.normalized_z, nan=np.nanmin(self.normalized_z))
+            if(np.max(self.normalized_z) == np.min(self.normalized_z)):
+                print("FOUND")
             self.normalized_z = (self.normalized_z - np.min(self.normalized_z))/(np.max(self.normalized_z) - np.min(self.normalized_z))
 
     def reset(self):
@@ -146,36 +151,68 @@ class shekel(object):
 
     def step(self):
         """ Move every maximum with a random walk noise """
+        #self.A += self.dt * (2 * (np.random.rand(*self.A.shape)-0.5)  * self.xy_size * 0.9 #- self.xy_size*0.1)
+        self.A += self.dt * ((np.random.rand(*self.A.shape)-0.5)  * self.xy_size * 0.9) #- self.xy_size*0.1)
 
-        self.A += self.dt*(2*(np.random.rand(*self.A.shape)-0.5) * self.xy_size * 0.9 + self.xy_size*0.1)
         self.create_field()
 
         pass
 
+    def add_peak(self):
+        # Increase the number of peaks by 1
+        self.number_of_peaks += 1
+
+        # Adds a new position where to put the new peak
+        new_pos = np.random.rand(1,2) * self.xy_size
+        self.A = np.append(self.A, new_pos)
+        self.A = self.A.reshape(self.number_of_peaks, 2)
+
+        # Adds a new peak size bounded from a minimum 2.5 to 5 (0.5 to 2.5?)
+        self.C = np.append(self.C, (2*np.random.rand() + 0.5))
+        self.C = self.C.reshape(self.number_of_peaks, 1)
+
+        self.create_field()
+    
+    def remove_peak(self):
+        if len(self.A) >= 2 and len(self.C) >= 2:
+            # If there is something to remove
+
+            # Decrease the number of peaks by 1
+            self.number_of_peaks -= 1
+            # Picks random peak
+            random_peak = np.random.randint(0, len(self.A))
+
+            #Deletes it from both A and C
+            self.A = np.delete(self.A, random_peak, axis = 0)
+            self.A = self.A.reshape(self.number_of_peaks, 2)
+
+            self.C = np.delete(self.C, random_peak, axis = 0)
+            self.C = self.C.reshape(self.number_of_peaks, 1)
+
+            self.create_field()
+        else:
+            return "there are 0 peaks in the benchmark"
+        
+    def count_peaks(self):
+        return len(self.C)
 
 if __name__ == "__main__":
-
     import matplotlib.pyplot as plt
 
-    ypacarai_map = np.genfromtxt('../Maps/map.txt',delimiter=' ',dtype=int)
+    ypacarai_map = np.genfromtxt('Environment/Maps/map.txt',delimiter=' ',dtype=int)
     gt = shekel(ypacarai_map, max_number_of_peaks=6, is_bounded=True, seed=10, dt=0.01)
-
     
-    
-    for i in range(10):
+    while True:
+    #for i in range(10):
         gt.reset()
         gt.render()
 
-        #np.savetxt('test_DELETEME.csv', gt.read(), fmt='%f', delimiter=';')
-
-        input()
-        """
-        for t in range(150):
-            gt.step()
-            gt.render()
-        """
-
-
-
-
-
+        for t in range(3):
+                random_bool = random.choice([True, False])
+                if random_bool :
+                    gt.add_peak()
+                    print("f{t} -: Peak Added")
+                else:
+                    gt.remove_peak()
+                    print("f{t} -: Peak Removed")
+                gt.render()

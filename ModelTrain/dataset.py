@@ -41,6 +41,30 @@ class StaticDataset(Dataset):
 
 		return sample
 
+class DynamicDataset(StaticDataset):
+	def __init__(self, path_trajectories, path_gts, transform=None):
+		super().__init__(path_trajectories, path_gts, transform)
+		self.gts = self.gts.reshape(self.gts.shape[0]*self.gts.shape[1], self.gts.shape[2], self.gts.shape[3])
+		self.transform = transform
+	
+	def __getitem__(self, idx):
+		
+		# Transform the index to a list
+		if th.is_tensor(idx):
+			idx = idx.tolist()
+
+		# Get the trajectory of idx
+		observation = self.trajectories[idx]
+
+		# Get the ground truth that corresponds to the trajectory
+		gt = self.gts[idx]
+
+		sample = (observation, gt)
+
+		if self.transform:
+			sample = (self.transform(sample), self.transform(gt))
+
+		return sample
 
 if __name__ == '__main__':
 

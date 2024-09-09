@@ -5,7 +5,7 @@ import torch as th
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from ModelTrain.dataset import StaticDataset
+from ModelTrain.dataset import DynamicDataset
 from Models.unet import VAEUnet
 from Environment.GroundTruths.AlgaeBloomGroundTruth import algae_colormap
 import colorcet as cc
@@ -18,9 +18,9 @@ import argparse
 parser = argparse.ArgumentParser(description='Test the model')
 
 parser.add_argument('--benchmark', type=str, default='shekel', choices=['shekel', 'algae_bloom'])
-parser.add_argument('--test_type', type=str, default='test',  choices=['test', 'validation'])
+parser.add_argument('--test_type', type=str,  default='test', choices=['test', 'validation'])
 parser.add_argument('--N_episodes', type=int, default=50)
-parser.add_argument('--name_type', type=str, default=None, choices=['low_coverage'])
+parser.add_argument('--name_type', type=str, choices=['Peaks_Variation', 'Peaks_Variation_long_run'])
 args = parser.parse_args()
 
 mask = np.genfromtxt('Environment/Maps/map.txt', delimiter=' ')
@@ -31,10 +31,7 @@ device = th.device('cuda' if th.cuda.is_available() else 'cpu')
 
 model_name = "NoDrone"
 
-if args.name_type is None:
-	folder_model_1 = args.test_type + "_" + model_name + "_" + args.benchmark + "_Datasets"			#folder where the dataset is
-else:
-	folder_model_1 = args.test_type + "_" + model_name + "_" + args.benchmark + "_Datasets_low_coverage"			#folder where the dataset is
+folder_model_1 = args.test_type + "_" + model_name + "_" + args.benchmark + "_Dataset_" + args.name_type			#folder where the dataset is
 
 comb_type_model_1 = model_name + "_-_False_none"										#combination type of the model trained
 
@@ -45,7 +42,7 @@ VAEUnet_folder_model_1 = "VAEUnet_shekel_20240829-144816"								#internal name 
 #######################################################################
 
 # Create the dataset
-dataset_model_1 = StaticDataset(path_trajectories = 'ModelTrain/'+ folder_model_1 + '/' + comb_type_model_1 +'/trajectories_{}_{}.npy'.format(args.benchmark, args.test_type),
+dataset_model_1 = DynamicDataset(path_trajectories = 'ModelTrain/'+ folder_model_1 + '/' + comb_type_model_1 +'/trajectories_{}_{}.npy'.format(args.benchmark, args.test_type),
 						path_gts = 'ModelTrain/'+ folder_model_1 + '/' + comb_type_model_1 +'/gts_{}_{}.npy'.format(args.benchmark, args.test_type),
 						transform=None)
 
@@ -71,15 +68,16 @@ navigation_map = np.genfromtxt('Environment/Maps/map.txt', delimiter=' ')
 step_mse_total = []
 step_rmse_total = []
 step_w_rmse_total = []
-#step_list_total = np.arange(0,321)
+
 
 step_mse_simulation = []
 step_rmse_simulation = []
 step_w_rmse_simulation = []
 
 simulation_steps = len(dataset_model_1) / args.N_episodes
-print("simulation_steps -> " + str(simulation_steps))
+print("simulation steps -> " + str(simulation_steps))
 step_list_total = np.arange(0,simulation_steps)
+
 count = 0
 
 for i in tqdm(range(len(dataset_model_1))):
@@ -122,14 +120,11 @@ for i in tqdm(range(len(dataset_model_1))):
 
 		count = 0
 
- #low_coverage
+#peaks_variation
+#peaks_variation_long_run
 
-if args.name_type is None:
-	name = ""
-else:
-	name = "_" + args.name_type
 
-np.save('step_list_'+ model_name + name + '.npy', step_list_total)
-np.save('step_mse_'+ model_name + name + '.npy', np.mean(step_mse_total, axis = 0))
-np.save('step_rmse_'+ model_name + name + '.npy', np.mean(step_rmse_total, axis = 0))
-np.save('step_w_rmse_'+ model_name + name + '.npy', np.mean(step_w_rmse_total, axis = 0))
+np.save('step_list_'+ model_name + '_' + args.name_type + '.npy', step_list_total)
+np.save('step_mse_'+ model_name + '_' + args.name_type + '.npy', np.mean(step_mse_total, axis = 0))
+np.save('step_rmse_'+ model_name + '_' + args.name_type + '.npy', np.mean(step_rmse_total, axis = 0))
+np.save('step_w_rmse_'+ model_name + '_' + args.name_type + '.npy', np.mean(step_w_rmse_total, axis = 0))

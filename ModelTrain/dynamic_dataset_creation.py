@@ -29,7 +29,6 @@ argparser.add_argument('--n_agents', type=int, default=4)
 argparser.add_argument('--frameskip', type=int, default=1)
 argparser.add_argument('--max_frames', type=int, default=3000)
 argparser.add_argument('--N_episodes', type=int, default=20)
-argparser.add_argument('--peak_change', type=int, default=300)
 #if the argument is a string, even "false" then bool('False') returns True giving parallel a True value
 argparser.add_argument('--parallel', action='store_true')
 argparser.add_argument('--benchmark', type=str, default='shekel', choices=['algae_bloom', 'shekel'])
@@ -70,7 +69,7 @@ def generate_trajectory(seed):
 								forgetting_factor=0.01,
 								max_distance=400,
 								benchmark=args.benchmark,
-								dynamic=False,
+								dynamic=True,
 								reward_weights=[10.0, 10.0],
 								reward_type='weighted_idleness',
 								model='none',
@@ -100,20 +99,9 @@ def generate_trajectory(seed):
 		# Get the ground truth
 		ground_truth.append(env.ground_truth.read().copy())
 
+        # Executes the step
 		actions = {i: agent[i].move(env.fleet.vehicles[i].position.astype(int)) for i in done.keys() if not done[i]}
 		_,_,done,_ = env.step(actions)
-
-        # After having made the step, at the peak_change step, add or remove a peak from the benchmark
-		if t % args.peak_change == 0 and t > 0:
-			random_bool = np.random.choice([True, False])
-			if random_bool :
-				env.ground_truth.add_peak()
-				#print("f{t} -: Peak Added")
-			else:
-				env.ground_truth.remove_peak()
-				#print("f{t} -: Peak Removed")
-
-		# Get the ground truth
 
 		if t in frame_number and args.random:
 			W_list.append(env.fleet.visited_map.copy())
@@ -152,32 +140,6 @@ if __name__ == "__main__":
 		seed_start = 20000
 		seed_end = 20000 + N_episodes
 
-	"""
-	if parallel:
-		
-		# Create a Pool of sub-processes
-		pool = mp.Pool(2)
-		# Generate the trajectories in parallel imap returns an iterator
-		#Careful imap should return an iterable that you need to elaborate to extract useful information about trajectories
-		trajectories = list(pool.imap(generate_trajectory, range(seed_start, seed_end)))
-		# Close the pool
-		pool.close()
-	
-	else:
-
-		trajectories = [generate_trajectory(i) for i in tqdm(range(seed_start, seed_end))]
-
-	gts = np.asarray([traj[1] for traj in trajectories])
-	observations = np.asarray([traj[0] for traj in trajectories])
-
-	# Save the trajectories 
-
-	file_name = 'ModelTrain/Data/trajectories_' + benchmark + '_' + dataset + '.npy'
-	np.save(file_name, (observations * 255.0).astype(np.uint8))
-	file_name = 'ModelTrain/Data/gts_' + benchmark + '_' + dataset + '.npy'
-	np.save(file_name, (gts* 255.0).astype(np.uint8))
-	"""
-
 	if parallel:
 			file_name_traj = 'ModelTrain/Data/trajectories_' + benchmark + '_' + dataset + '.npy'
 			file_name_gts = 'ModelTrain/Data/gts_' + benchmark + '_' + dataset + '.npy'
@@ -214,29 +176,3 @@ if __name__ == "__main__":
 				observations = np.asarray([trajectorie[0]])
 				fnGTS.append((gts* 255.0).astype(np.uint8))
 				fnTRAJ.append((observations * 255.0).astype(np.uint8))
-		
-
-		#trajectories = [generate_trajectory(i) for i in tqdm(range(seed_start, seed_end))]
-
-	"""for obs, gt in trajectories:
-		gts = np.asarray(gt)
-		observations = np.asarray(obs)"""
-
-	#gts = np.asarray([traj[1] for traj in trajectories])
-	#observations = np.asarray([traj[0] for traj in trajectories])
-
-	# Save the trajectories 
-	"""
-	file_name = 'ModelTrain/Data/trajectories_' + benchmark + '_' + dataset + '.npy'
-	np.save(file_name, (observations * 255.0).astype(np.uint8))
-	file_name = 'ModelTrain/Data/gts_' + benchmark + '_' + dataset + '.npy'
-	np.save(file_name, (gts* 255.0).astype(np.uint8))
-		"""
-
-
-
-
-
-
-
-

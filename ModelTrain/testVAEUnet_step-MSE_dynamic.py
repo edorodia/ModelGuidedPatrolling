@@ -20,7 +20,7 @@ parser = argparse.ArgumentParser(description='Test the model')
 parser.add_argument('--benchmark', type=str, default='shekel', choices=['shekel', 'algae_bloom'])
 parser.add_argument('--test_type', type=str,  default='test', choices=['test', 'validation'])
 parser.add_argument('--N_episodes', type=int, default=50)
-parser.add_argument('--name_type', type=str, choices=['Peaks_Variation', 'Peaks_Variation_long_run'])
+parser.add_argument('--name_type', type=str, choices=['Peaks_Variation', 'Peaks_Variation_long_run', 'Dynamic_GT', 'Dynamic_GT_long_run'])
 args = parser.parse_args()
 
 mask = np.genfromtxt('Environment/Maps/map.txt', delimiter=' ')
@@ -122,7 +122,7 @@ for i in tqdm(range(len(dataset_model_1))):
 
 #peaks_variation
 #peaks_variation_long_run
-
+print(np.array(step_mse_total).shape)
 
 np.save('step_list_'+ model_name + '_' + args.name_type + '.npy', step_list_total)
 np.save('step_mse_'+ model_name + '_' + args.name_type + '.npy', np.mean(step_mse_total, axis = 0))

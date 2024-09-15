@@ -10,15 +10,15 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 import cmasher as cmr
 
 # Load the dataset
-benchmark = "train"
+benchmark = "test"
 
 comb_type = "FishEyeNoise_-_True_False_none"
 
-
-foldername = "ModelTrain/Training_FishEyeNoise_Shekel_Datasets/" + comb_type
-#foldername = "ModelTrain/Data"
-trajectories = np.load(foldername + '/trajectories_shekel_'+ benchmark +'.npy', mmap_mode="r")
-gts = np.load(foldername + '/gts_shekel_'+ benchmark +'.npy', mmap_mode="r")
+#foldername = "ModelTrain/test_FishEyeNoise_Shekel_Datasets/" + comb_type
+#foldername = "ModelTrain/test_FishEyeNoise_Shekel_Dataset_Peaks_Variation/" + comb_type
+foldername = "ModelTrain/Data"
+trajectories = np.load(foldername + '/trajectories_shekel_'+ benchmark +'_FishEyeNoise.npy', mmap_mode="r")
+gts = np.load(foldername + '/gts_shekel_'+ benchmark +'_FishEyeNoise.npy', mmap_mode="r")
 background = np.genfromtxt('Environment/Maps/map.txt')
 
 plt.ion()
@@ -33,7 +33,8 @@ ax[1].imshow(background, vmin=0, vmax=1, cmap = 'copper_r', alpha = 1 - backgrou
 d1 = ax[1].imshow(trajectories[0,0,0,:,:], vmin=0, vmax=1, cmap = cmap)
 ax[2].imshow(background, vmin=0, vmax=1, cmap = 'copper_r', alpha = 1 - background, zorder=10)
 
-d2 = ax[2].imshow(gts[0], vmin=0, vmax=1,  cmap = cmap)
+#d2 = ax[2].imshow(gts[0], vmin=0, vmax=1,  cmap = cmap)
+d2 = ax[2].imshow(gts[0,0], vmin=0, vmax=1,  cmap = cmap)
 
 # Colorbar
 divider = make_axes_locatable(ax[2])
@@ -57,7 +58,8 @@ for t in range(len(trajectories)):
 
         d0.set_data(trajectories[t,i,0,:,:]/255)
         d1.set_data(trajectories[t,i,1,:,:]/255)
-        d2.set_data(gts[t]/255)
+        d2.set_data(gts[t,i,:,:]/255)
+        #d2.set_data(gts[t]/255)
         fig.canvas.draw()
         plt.pause(0.1)
 

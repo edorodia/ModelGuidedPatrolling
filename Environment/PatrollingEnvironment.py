@@ -14,6 +14,7 @@ from Models.GaussianProcessModel import GaussianProcessModel
 from Models.PolinomialRegressor import PolinomialRegressor
 from Models.SVRegressor import SVRegressor
 from Models.UnetModel import UnetDeepModel, VAEUnetDeepModel, benchmark_2_vae_path
+from HetModels.HetUnetModel import VAEUnetDeepHetModel, benchmark_2_vae_path_het
 from sklearn.metrics import mean_squared_error, r2_score
 from PathPlanners.dijkstra import Dijkstra
 
@@ -1443,8 +1444,8 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 			                         dt=0.7)
 		elif model == 'vaeUnet':
 			#the path of the model has to be written in the benchmark_2_vae_path dictionary in the UnetModel script
-			self.model = VAEUnetDeepModel(navigation_map=self.navigation_map,
-			                              model_path=benchmark_2_vae_path[benchmark],
+			self.model = VAEUnetDeepHetModel(navigation_map=self.navigation_map,
+			                              model_path=benchmark_2_vae_path_het[benchmark],
 			                              resolution=self.resolution,
 			                              influence_radius=0.0, dt=0.01, N_imagined=10)
 		else:

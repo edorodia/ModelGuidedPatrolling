@@ -7,11 +7,11 @@ from Models.unet import UNet, VAEUnet
 from HetModels.HetMiopicModel import HetMiopicModel
 
 
-benchmark_2_vae_path = {'algae_bloom': r'runs/optuna/algae_bloom/VAEUnet_algae_bloom_test_trial_num_12.pth',
+benchmark_2_vae_path_het = {'algae_bloom': r'runs/optuna/algae_bloom/VAEUnet_algae_bloom_test_trial_num_12.pth',
                         'shekel':      r'runs/optuna/shekel/VAEUnet_shekel_test_trial_num_18.pth'}
 
 
-class UnetDeepModel:
+class UnetDeepHetModel:
 
 	def __init__(self, navigation_map: np.ndarray,
 	             model_path: str,
@@ -66,7 +66,7 @@ class UnetDeepModel:
 		self.pre_model.reset()
 
 
-class VAEUnetDeepModel(UnetDeepModel):
+class VAEUnetDeepHetModel(UnetDeepHetModel):
 	""" Subclass of UnetDeepModel that uses a VAEUnet model """
 
 	def __init__(self, navigation_map: np.ndarray, model_path: str, device: str = 'cuda:0', resolution=1,

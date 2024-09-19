@@ -46,23 +46,25 @@ class HetMiopicModel(HetBaseModel):
 		#the drone uses influence_side in another way than ASVs do, every cell is an effective environment read with a different value read
 		if from_Drone:
 			
-			# Convert positions to integer indices
-			row_indices = Drone_positions[:, 0].astype(int)
-			col_indices = Drone_positions[:, 1].astype(int)
+			for drone_position, drone_value in zip(Drone_positions, Drone_values):
 
-			# Ensure indices are within the bounds of self.model_map
-			valid_indices = (
-				(row_indices >= 0) & (row_indices < self.model_map.shape[0]) &
-				(col_indices >= 0) & (col_indices < self.model_map.shape[1])
-			)
+				# Convert positions to integer indices
+				row_indices = drone_position[:, 0].astype(int)
+				col_indices = drone_position[:, 1].astype(int)
 
-			# Apply valid indices
-			valid_row_indices = row_indices[valid_indices]
-			valid_col_indices = col_indices[valid_indices]
-			valid_drone_values = Drone_values[valid_indices]
+				# Ensure indices are within the bounds of self.model_map
+				valid_indices = (
+					(row_indices >= 0) & (row_indices < self.model_map.shape[0]) &
+					(col_indices >= 0) & (col_indices < self.model_map.shape[1])
+				)
 
-			# Update self.model_map only for valid positions
-			self.model_map[valid_row_indices, valid_col_indices] = valid_drone_values
+				# Apply valid indices
+				valid_row_indices = row_indices[valid_indices]
+				valid_col_indices = col_indices[valid_indices]
+				valid_drone_values = drone_value[valid_indices]
+
+				# Update self.model_map only for valid positions
+				self.model_map[valid_row_indices, valid_col_indices] = valid_drone_values
 			
 			#this is what is done if there is no influence radius every position in the model map gets it corresponding value withouth considering the radius
 			#self.model_map[Drone_positions[:,0].astype(int), Drone_positions[:,1].astype(int)] = Drone_values

@@ -642,7 +642,7 @@ class CoordinatedHetFleet(CoordinatedFleet):
 				# Move the drone_id drone to the position in its index #
 				self.drones[drone_id].move(to_positions[drone_id][1], to_positions[drone_id][0])
 				
-		for drone_id in self.drones_ids:
+		for drone_id in to_positions.keys():
 			# Update the visited map #
 			"""it does it by taking the x and y data about the last waypoints explored for every vehicle and setting
 			that position to 1 in the visited_map"""
@@ -1441,6 +1441,12 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 			                         resolution=self.resolution,
 			                         influence_radius=0,
 			                         dt=0.7)
+		elif model == 'vaeUnet':
+			#the path of the model has to be written in the benchmark_2_vae_path dictionary in the UnetModel script
+			self.model = VAEUnetDeepModel(navigation_map=self.navigation_map,
+			                              model_path=benchmark_2_vae_path[benchmark],
+			                              resolution=self.resolution,
+			                              influence_radius=0.0, dt=0.01, N_imagined=10)
 		else:
 			raise ValueError('Unknown model')
 		
@@ -1560,7 +1566,7 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 		the model used is shared between the two fleets, the air one and the water one
 		even if the drone didn't make a move we still send all informations to the single update_model() method
 		"""
-		self.update_model(ASV_moved, drone_moved)
+		self.update_model(ASV_moved, drone_moved, positions_Drone)
 		
 
 		# Get the observations #
@@ -1639,41 +1645,39 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 		return sample_drone_positions
 
 	# dafault model is Miopic #
-	def update_model(self, ASV_moved: bool, drone_moved: bool):
+	def update_model(self, ASV_moved: bool, drone_moved: bool, to_positions: dict):
 		
 		""" Save previous model """
 		self.previous_model = self.model.predict().copy()
 
-		""" Update the model """
-
+		sample_positions_ASV = []
+		values_ASV = []
 		""" if there is new data from the ASVs """
 		if ASV_moved :
-			# Obtain all the new positions of the ASVs #
 			sample_positions_ASV = self.fleet.get_last_ASV_waypoints()
-			
-			# Obtain the values of the ground truth in the new ASV positions #
 			values_ASV = self.ground_truth.read(sample_positions_ASV)
 
-			self.model.update(from_ASV = True, from_Drone = False, ASV_positions = sample_positions_ASV, ASV_values = values_ASV)
-
+		total_drone_positions_list = []
+		total_values_drone = []
 		""" if there is new data from the Drones """
 		if drone_moved :
-			# Obtain all the new positions of the Drones #
 			Drone_positions_dict = self.fleet.get_last_drone_waypoints()
-
 			Drone_squares_dict = self._get_sample_drone_positions(Drone_positions_dict)
-
-			count_update = 0
-
 			""" add the new drone data in the model for every drone """
 			for drone_id in Drone_squares_dict.keys():
-				# Get the ground truth values #
-				values_square = self.ground_truth.read(Drone_squares_dict[drone_id])
-				# Apply the noise mask #
-				drone_positions_list, values_Drone = self.DroneNoiseModel.mask(Drone_squares_dict[drone_id],values_square)
-				count_update += 1
-				#adds the new data of the drone_id
-				self.model.update(from_ASV = False, from_Drone = True, Drone_positions = drone_positions_list, Drone_values = values_Drone)
+				if drone_id in to_positions:
+					# Get the ground truth values #
+					values_square = self.ground_truth.read(Drone_squares_dict[drone_id])
+					# Apply the noise mask #
+					drone_positions_list, values_Drone = self.DroneNoiseModel.mask(Drone_squares_dict[drone_id],values_square)
+					total_drone_positions_list.append(drone_positions_list)
+					total_values_drone.append(values_Drone)
+
+
+		if self.model_str == 'deepUnet' or self.model_str == 'vaeUnet':
+			self.model.update(from_ASV = ASV_moved, from_Drone = drone_moved, ASV_positions = sample_positions_ASV, ASV_values = values_ASV, Drone_positions = total_drone_positions_list, Drone_values = total_values_drone, ASV_visited_map = self.fleet.visited_map, Drone_visited_map = self.fleet.visited_air_map)
+		else:
+			self.model.update(from_ASV = ASV_moved, from_Drone = drone_moved, ASV_positions = sample_positions_ASV, ASV_values = values_ASV, Drone_positions = total_drone_positions_list, Drone_values = total_values_drone)
 	
 	def get_observations(self):
 		""" Observation function. The observation is composed by:

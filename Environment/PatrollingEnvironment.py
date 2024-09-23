@@ -480,7 +480,8 @@ class CoordinatedFleet:
 		net_change = np.abs(self.idleness_map - self.idleness_map_)
 		
 		# Compute the changes for every vehicle by vehicle mask multiplication #
-		return {i: np.sum(self.vehicles[i].influence_mask * (net_change / np.sum(self.redundancy_mask()))) for i in
+		clipped_redundancy = np.clip(self.redundancy_mask(), 1 , np.inf)
+		return {i: (self.vehicles[i].influence_mask * (net_change / clipped_redundancy)) for i in
 		        self.vehicles_ids}
 	
 	def update_idleness_map(self):
@@ -838,8 +839,8 @@ class CoordinatedHetFleet(CoordinatedFleet):
 		# Compute the changes for every vehicle by vehicle mask multiplication #
 		#return {i: np.sum(self.vehicles[i].influence_mask * (net_change / self.redundancy_mask())) for i in
 		#        self.vehicles_ids}
-
-		return {i: np.sum(self.vehicles[i].influence_mask * (net_change / np.sum(self.redundancy_ASV_mask()))) for i in
+		clipped_redundancy = np.clip(self.redundancy_ASV_mask(), 1 , np.inf)
+		return {i: (self.vehicles[i].influence_mask * (net_change / clipped_redundancy)) for i in
 		        self.vehicles_ids}
 	
 	def changes_air_idleness(self):
@@ -849,7 +850,8 @@ class CoordinatedHetFleet(CoordinatedFleet):
 		# Compute the changes for every vehicle by vehicle mask multiplication #
 		#return {i: np.sum(self.drones[i].influence_mask * (net_air_change / self.redundancy_drone_mask())) for i in
 		#        self.drones_ids}
-		return {i: np.sum(self.drones[i].influence_mask * (net_air_change / np.sum(self.redundancy_drone_mask()))) for i in
+		clipped_redundancy = np.clip(self.redundancy_drone_mask(), 1 , np.inf)
+		return {i: (self.drones[i].influence_mask * (net_air_change / clipped_redundancy)) for i in
 		         self.drones_ids}
 
 	def get_last_ASV_waypoints(self):
@@ -1213,12 +1215,12 @@ class DiscreteModelBasedPatrolling:
 				# The reward is the sum of the local changes in the agent's influence area + W #
 				
 				#information gain calculated with only the predictive model
-				information_gain = np.sum(self.fleet.vehicles[agent_id].influence_mask * (
-						self.model.predict() / np.sum(self.fleet.redundancy_mask())))
+				information_gain = self.fleet.vehicles[agent_id].influence_mask * (
+						self.model.predict() / self.fleet.redundancy_mask())
 				
 				#information gain calculated with the ground truth
-				true_information_gain = np.sum(self.fleet.vehicles[agent_id].influence_mask * (
-						self.ground_truth.read() / np.sum(self.fleet.redundancy_mask())))
+				true_information_gain = self.fleet.vehicles[agent_id].influence_mask * (
+						self.ground_truth.read() / self.fleet.redundancy_mask())
 				
 				#every agent has its own reward calculated and based upon its influence in the total environment
 				#W is the change outside the actual influence of the agent, and this change is a difference so the higher it is the better
@@ -1746,7 +1748,7 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 				
 				#information gain calculated with idleness collected
 				information_gain = np.sum(self.fleet.drones[drone_id].influence_mask * ( 	W_air[drone_id] / 
-																							np.sum(self.fleet.redundancy_drone_mask())	))
+																							self.fleet.redundancy_drone_mask()	))
 				#reward for every drone saved
 				reward[drone_id] = information_gain * 100.0
 		

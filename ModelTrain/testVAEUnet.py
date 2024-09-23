@@ -18,7 +18,7 @@ import argparse
 parser = argparse.ArgumentParser(description='Test the model')
 
 parser.add_argument('--benchmark', type=str, default='shekel', choices=['shekel', 'algae_bloom'])
-parser.add_argument('--test_type', type=str,  choices=['test', 'validation'])
+parser.add_argument('--test_type', type=str, default='test',  choices=['test', 'validation'])
 parser.add_argument('--render', action='store_true')
 args = parser.parse_args()
 
@@ -28,7 +28,7 @@ device = th.device('cuda' if th.cuda.is_available() else 'cpu')
 
 #################### Folders and Parameters setting ####################
 
-folder = args.test_type + "_NoDrone_" + args.benchmark + "_Datasets"			#folder where the dataset is
+folder = args.test_type + "_NoDrone_" + args.benchmark + "_Datasets_low_coverage"			#folder where the dataset is
 
 comb_type = "NoDrone_-_False_none"										#combination type of the model trained
 

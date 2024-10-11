@@ -830,7 +830,7 @@ class CoordinatedHetFleet(CoordinatedFleet):
 		#redundancy_mask[redundancy_mask == 0] = 1
 		#return redundancy_mask
 
-		return np.array([self.vehicles[i].influence_mask for i in self.vehicles_ids]).sum(axis=0)
+		return np.array([self.drones[i].influence_mask for i in self.drones_ids]).sum(axis=0)
 
 	def changes_ASV_idleness(self):
 		# Compute the changes in idleness #
@@ -1214,22 +1214,24 @@ class DiscreteModelBasedPatrolling:
 			for agent_id in self.fleet.vehicles_ids:
 				# The reward is the sum of the local changes in the agent's influence area + W #
 				
+				clipped_redundancy = np.clip(self.fleet.redundancy_mask(), 1 , np.inf)
+
 				#information gain calculated with only the predictive model
 				information_gain = self.fleet.vehicles[agent_id].influence_mask * (
-						self.model.predict() / self.fleet.redundancy_mask())
+						self.model.predict() / clipped_redundancy)
 				
 				#information gain calculated with the ground truth
 				true_information_gain = self.fleet.vehicles[agent_id].influence_mask * (
-						self.ground_truth.read() / self.fleet.redundancy_mask())
+						self.ground_truth.read() / clipped_redundancy)
 				
 				#every agent has its own reward calculated and based upon its influence in the total environment
 				#W is the change outside the actual influence of the agent, and this change is a difference so the higher it is the better
 				#the information gain is based on the value of the zone that the agent is measuring, the quantity of algae that is present, so that has to be higher too
 				#we need to maximize this reward
-				reward[agent_id] = W[agent_id] * (information_gain + self.min_information_importance) * 100.0
+				reward[agent_id] = np.sum(W[agent_id] * (information_gain + self.min_information_importance) * 100.0)
 				#the true reward is also calculated, the only difference is that true_information_gain is used instead of the previous one
-				self.true_reward[agent_id] = W[agent_id] * (
-						true_information_gain + self.min_information_importance) * 100.0
+				self.true_reward[agent_id] = np.sum(W[agent_id] * (
+						true_information_gain + self.min_information_importance) * 100.0)
 		
 		else:
 			raise NotImplementedError('Unknown reward type')
@@ -1746,9 +1748,12 @@ class DiscreteModelBasedHetPatrolling(DiscreteModelBasedPatrolling):
 			for drone_id in self.fleet.drones_ids:
 				# The reward is the sum of the idleness changes in the idleness_air which keeps track of both the asv and drone enviornment reads #
 				
+				clipped_redundancy_drone = np.clip(self.fleet.redundancy_drone_mask(), 1 , np.inf)
+				clipped_redundancy_asv = np.clip(self.fleet.redundancy_ASV_mask(), 1 , np.inf)
+
 				#information gain calculated with idleness collected
 				information_gain = np.sum(self.fleet.drones[drone_id].influence_mask * ( 	W_air[drone_id] / 
-																							self.fleet.redundancy_drone_mask()	))
+																							clipped_redundancy_drone * clipped_redundancy_asv))
 				#reward for every drone saved
 				reward[drone_id] = information_gain * 100.0
 		
